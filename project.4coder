@@ -1,0 +1,92 @@
+version(2);
+
+project_name =  "Particle System";
+
+patterns = {
+  "*.c",
+  "*.h",
+  "*.hlsl",
+  "*.sh",
+  "*.bat",
+  "*.4coder",
+};
+
+blacklist_patterns =
+{
+  ".*",
+};
+
+load_paths = 
+{
+  .win = 
+  { 
+    { .path =   ".", .recursive = false, .relative = true },
+    { .path = "src", .recursive =  true, .relative = true },
+  },
+	
+};
+
+commands =
+{
+  .build_exe =
+  {
+		.win              = "build.bat exe",
+    .out              = "*compilation*",
+		.footer_panel     = true, 
+		.save_dirty_files = true, 
+		.cursor_at_end    = false,
+	},
+  
+  .build_dll =
+  {
+		.win              = "build.bat dll",
+    .out              = "*compilation*",
+		.footer_panel     = true, 
+		.save_dirty_files = true, 
+		.cursor_at_end    = false,
+	},
+  
+  .build_test =
+  {
+		.win              = "build.bat test",
+    .out              = "*compilation*",
+		.footer_panel     = true, 
+		.save_dirty_files = true, 
+		.cursor_at_end    = false,
+	},
+  
+  .run =
+  {
+    .win              = "run.bat",
+		.footer_panel     = false, 
+		.save_dirty_files = true, 
+		.cursor_at_end    = false,
+	},
+  
+  .debug =
+  {
+    .win              = "debug.bat -rdbg",
+    .footer_panel     = false, 
+		.save_dirty_files = false, 
+		.cursor_at_end    = false,
+	},
+  
+  .renderdoc =
+  {
+    .win              = "debug.bat -rdoc",
+    .footer_panel     = false, 
+		.save_dirty_files = false, 
+		.cursor_at_end    = false,
+	},
+};
+
+fkey_command = 
+{
+  .F1  = "build_exe",
+  .F2  = "build_dll",
+  .F3  = "build_test",
+  
+  .F12 = "run",
+  .F11 = "debug",
+  .F10 = "renderdoc"
+};
