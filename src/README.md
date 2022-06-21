@@ -28,6 +28,10 @@ Well more specifically the algo makes use of append and consume structured buffe
 
 **How does the input assembler know how many vertices there are?**
 
+**Can append consume buffer write past buffer size?**
+
+I set the buffer size/max count on creation. Then with the uav i can set the count of initialize data.
+
 # Hard Lessons
 * A resource view can't be bound to two stages at the same time. In needs to be unbounded before any subsequent setresourceblah calls are made with the same resourceview.
 

@@ -142,7 +142,7 @@ void GSMAIN(point GS_INPUT input[1], inout TriangleStream<PS_INPUT> SpriteStream
     // Transform to clip space
     Output.position = mul( viewposition + GlobalPos[i], ProjMatrix );
     Output.tex = GlobalTexCoords[i];
-    Output.color = colors;
+    Output.color = color;
     SpriteStream.Append(Output);
   }
   SpriteStream.RestartStrip();

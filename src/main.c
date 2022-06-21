@@ -268,6 +268,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
   }
   
   // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
+  ID3D11InputLayout *PLayout;
   ID3D11InputLayout* layout;
   ID3D11VertexShader* vshader;
   ID3D11PixelShader* pshader;
@@ -291,6 +292,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     
     ID3D11Device_CreateVertexShader(device, d3d11_vshader, sizeof(d3d11_vshader), NULL, &vshader);
     ID3D11Device_CreatePixelShader(device, d3d11_pshader, sizeof(d3d11_pshader), NULL, &pshader);
+    ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
     ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
     
 #else
@@ -388,6 +390,15 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     ID3D11Device_CreateVertexShader  (device, ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), NULL, &PSysVShader);
     ID3D11Device_CreateGeometryShader(device, ID3D10Blob_GetBufferPointer(PSysGblob), ID3D10Blob_GetBufferSize(PSysGblob), NULL, &PSysGShader);
     ID3D11Device_CreatePixelShader(device, ID3D10Blob_GetBufferPointer(PSysPBlob), ID3D10Blob_GetBufferSize(PSysPBlob), NULL, &PSysPShader);
+    
+    
+    
+    D3D11_INPUT_ELEMENT_DESC Desc[] =
+    {
+      { "Position", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, sizeof(v3f), D3D11_INPUT_PER_INSTANCE_DATA, 0 },
+    };
+    ID3D11Device_CreateInputLayout(device, Desc, ARRAYSIZE(Desc), ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), &PLayout);
+    
     ID3D10Blob_Release(PSysCMBlob);
     ID3D10Blob_Release(PSysCHBlob);
     ID3D10Blob_Release(PSysVBlob);
@@ -397,6 +408,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 #endif
   }
   
+  time_measure TimeData = InitTimeMeasure();
+  particlesystem ParticleSystem = CreateParticleSystem(device, 20, (f32)width, (f32)height);
+  ParticleSystem.ParticleLayout = PLayout;
   ID3D11Buffer* ubuffer;
   {
     D3D11_BUFFER_DESC desc =
@@ -409,8 +423,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     };
     ID3D11Device_CreateBuffer(device, &desc, NULL, &ubuffer);
   }
-  time_measure TimeData = InitTimeMeasure();
-  particlesystem ParticleSystem = CreateParticleSystem(device, 100, (f32)width, (f32)height);
+  
   ID3D11ShaderResourceView* textureView;
   {
     // checkerboard texture, with 50% transparency on black colors
@@ -520,7 +533,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
   float angle = 0;
   DWORD currentWidth = 0;
   DWORD currentHeight = 0;
-  
+  b32 IsFirstFrame = 1;
   for (;;)
   {
     // process all incoming Windows messages
@@ -595,6 +608,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
       currentWidth = width;
       currentHeight = height;
     }
+    
     
     // can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
     if (rtView)
@@ -676,29 +690,57 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
 3. Work on provideing nessaary unifrom data (done)
 4. Do const buffer mapping (done)
 5. Understand draw inderect
-*/
-      ID3D11UnorderedAccessView* NullUAV[1] = {NULL};
-      ID3D11ShaderResourceView* NullSRV[1] = {NULL};
+***Providing Initial Data
+-    1. Init data. What is the expected space(screen, clip, ect) of the data?
+  -    2. Tell UAV num expected(max) particles in buffer. (done)
+    -        - [first frame]Struft BufferA gets paraticle count
+    -        - [first frame]Struft BufferB count is 0
+    -        - [nth   frame]Struft BufferA & B count is -1 (dynamical updeted in compute shader)
+    */
+      ID3D11UnorderedAccessView *NullUAV[1] = {NULL};
+      ID3D11ShaderResourceView  *NullSRV[1] = {NULL};
+      ID3D11InputLayout         *NullLayout[1] = {NULL};
       // Compute Shader Helper
       ID3D11DeviceContext_CSSetConstantBuffers(context, 0, 1, &ParticleSystem.ConstParticleParams);
-      ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 0, 1, &ParticleSystem.UOAccessViewA,
-                                                    &ParticleSystem.ParticleMaxCount.x);
+      if(IsFirstFrame == 1)
+      { 
+        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 0, 1, &ParticleSystem.UOAccessViewA,
+                                                      &ParticleSystem.ParticleMaxCount.x);
+      }
+      else
+      {
+        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 0, 1, &ParticleSystem.UOAccessViewA,
+                                                      (u32 *)-1);
+      }
+      
       ID3D11DeviceContext_CSSetShader(context, PSysCHShader, NULL, 0);
-      ID3D11DeviceContext_Dispatch(context, 1, 1, 1);
+      ID3D11DeviceContext_Dispatch(context, 64, 1, 1);
       // Compute Shader Main
       ID3D11DeviceContext_CSSetConstantBuffers(context, 1, 1, &ParticleSystem.ConstSimParams);
       ID3D11DeviceContext_CSSetConstantBuffers(context, 2, 1, &ParticleSystem.ConstParticleCount);
       // NOTE(MIGUEL): UOAccessViewA is already bound
       //ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, &ParticleSystem.UOAccessViewA,
       //&ParticleSystem.ParticleMaxCount.x);
-      ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, &ParticleSystem.UOAccessViewB,
-                                                    &ParticleSystem.ParticleMaxCount.x);
+      if(IsFirstFrame == 1)
+      {
+        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, &ParticleSystem.UOAccessViewB, 0);
+      }
+      else
+      {
+        //u32 Count = (u32)-1;
+        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, &ParticleSystem.UOAccessViewB, (u32 *)-1);
+      }
+      
       ID3D11DeviceContext_CSSetShader(context, PSysCMShader, NULL, 0);
-      ID3D11DeviceContext_Dispatch(context, 1, 1, 1);
+      ID3D11DeviceContext_Dispatch(context, 64, 1, 1);
+      ID3D11DeviceContext_CopyStructureCount(context, ParticleSystem.IndirectDrawArgs, 4, ParticleSystem.UOAccessViewB);
+      
       //UBIND for render
       ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, NullUAV,
                                                     &ParticleSystem.ParticleMaxCount.x);
+      //~RENDERICNG
       // Input Assembler
+      ID3D11DeviceContext_IASetInputLayout(context, ParticleSystem.ParticleLayout); //NullLayout[0]
       ID3D11DeviceContext_IASetPrimitiveTopology(context, D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
       
       // Vertex Shader
@@ -725,6 +767,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
       
       //UNBIND for next frame
       ID3D11DeviceContext_VSSetShaderResources(context, 1, 1, NullSRV);
+      
+      IsFirstFrame = 0;
     }
     
     // change to FALSE to disable vsync

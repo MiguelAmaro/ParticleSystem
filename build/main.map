@@ -1,6 +1,6 @@
  main
 
- Timestamp is 62b0f7c6 (Mon Jun 20 18:42:14 2022)
+ Timestamp is 62b1d0fb (Tue Jun 21 10:08:59 2022)
 
  Preferred load address is 0000000140000000
 
@@ -78,31 +78,31 @@
  0000:00000100       __guard_flags              0000000000000100     <absolute>
  0000:00000000       __ImageBase                0000000140000000     <linker-defined>
  0001:00006550       WinMain                    0000000140007550 f   main.obj
- 0001:000088c0       GetFileSizeFromCSTL        00000001400098c0 f   main.obj
- 0001:00008920       Str8                       0000000140009920 f   main.obj
- 0001:00008990       Str8FromFile               0000000140009990 f   main.obj
- 0001:00008a70       CStrGetSize                0000000140009a70 f   main.obj
- 0001:00008ae0       Str8FromCStr               0000000140009ae0 f   main.obj
- 0001:00008b50       Str32                      0000000140009b50 f   main.obj
- 0001:00008bb0       Absolute                   0000000140009bb0 f   main.obj
- 0001:00008be0       Square                     0000000140009be0 f   main.obj
- 0001:00008c10       V2f                        0000000140009c10 f   main.obj
- 0001:00008c60       V3f                        0000000140009c60 f   main.obj
- 0001:00008ce0       V4f                        0000000140009ce0 f   main.obj
- 0001:00008d70       V4u                        0000000140009d70 f   main.obj
- 0001:00008de0       R2f                        0000000140009de0 f   main.obj
- 0001:000091e0       MemorySet                  000000014000a1e0 f   main.obj
- 0001:00009240       MemoryCopy                 000000014000a240 f   main.obj
- 0001:000092d0       MemoryIsEqual              000000014000a2d0 f   main.obj
- 0001:00009370       ArenaInit                  000000014000a370 f   main.obj
- 0001:000093f0       ArenaPushBlock             000000014000a3f0 f   main.obj
- 0001:00009460       ArenaPopCount              000000014000a460 f   main.obj
- 0001:000094c0       ArenaFreeUnused            000000014000a4c0 f   main.obj
- 0001:00009500       ArenaTempInit              000000014000a500 f   main.obj
- 0001:000095a0       ArenaDiscard               000000014000a5a0 f   main.obj
- 0001:00009600       CreateParticleSystem       000000014000a600 f   main.obj
- 0001:00009fd0       InitTimeMeasure            000000014000afd0 f   main.obj
- 0001:0000a0b0       TimeMeasureElapsed         000000014000b0b0 f   main.obj
+ 0001:00008a80       GetFileSizeFromCSTL        0000000140009a80 f   main.obj
+ 0001:00008ae0       Str8                       0000000140009ae0 f   main.obj
+ 0001:00008b50       Str8FromFile               0000000140009b50 f   main.obj
+ 0001:00008c30       CStrGetSize                0000000140009c30 f   main.obj
+ 0001:00008ca0       Str8FromCStr               0000000140009ca0 f   main.obj
+ 0001:00008d10       Str32                      0000000140009d10 f   main.obj
+ 0001:00008d70       Absolute                   0000000140009d70 f   main.obj
+ 0001:00008da0       Square                     0000000140009da0 f   main.obj
+ 0001:00008dd0       V2f                        0000000140009dd0 f   main.obj
+ 0001:00008e20       V3f                        0000000140009e20 f   main.obj
+ 0001:00008ea0       V4f                        0000000140009ea0 f   main.obj
+ 0001:00008f30       V4u                        0000000140009f30 f   main.obj
+ 0001:00008fa0       R2f                        0000000140009fa0 f   main.obj
+ 0001:000093a0       MemorySet                  000000014000a3a0 f   main.obj
+ 0001:00009400       MemoryCopy                 000000014000a400 f   main.obj
+ 0001:00009490       MemoryIsEqual              000000014000a490 f   main.obj
+ 0001:00009530       ArenaInit                  000000014000a530 f   main.obj
+ 0001:000095b0       ArenaPushBlock             000000014000a5b0 f   main.obj
+ 0001:00009620       ArenaPopCount              000000014000a620 f   main.obj
+ 0001:00009680       ArenaFreeUnused            000000014000a680 f   main.obj
+ 0001:000096c0       ArenaTempInit              000000014000a6c0 f   main.obj
+ 0001:00009760       ArenaDiscard               000000014000a760 f   main.obj
+ 0001:000097c0       CreateParticleSystem       000000014000a7c0 f   main.obj
+ 0001:0000a280       InitTimeMeasure            000000014000b280 f   main.obj
+ 0001:0000a360       TimeMeasureElapsed         000000014000b360 f   main.obj
  0001:0000ae9e       TranslateMessage           000000014000be9e f   user32:USER32.dll
  0001:0000aea4       DispatchMessageW           000000014000bea4 f   user32:USER32.dll
  0001:0000aeaa       PeekMessageW               000000014000beaa f   user32:USER32.dll
@@ -2791,29 +2791,28 @@
  0002:00000bf0       __xp_z                     0000000140088bf0     LIBCMT:initializers.obj
  0002:00000d00       __xt_a                     0000000140088d00     LIBCMT:initializers.obj
  0002:00000e10       __xt_z                     0000000140088e10     LIBCMT:initializers.obj
- 0002:00000f20       __real@3e800000            0000000140088f20     main.obj
- 0002:00000f24       __real@3ec8b439            0000000140088f24     main.obj
- 0002:00000f28       __real@3f000000            0000000140088f28     main.obj
- 0002:00000f2c       __real@3f158106            0000000140088f2c     main.obj
- 0002:00000f30       __real@3f20d97c            0000000140088f30     main.obj
- 0002:00000f34       __real@3f400000            0000000140088f34     main.obj
- 0002:00000f38       __real@3f6dd2f2            0000000140088f38     main.obj
- 0002:00000f3c       __real@3f800000            0000000140088f3c     main.obj
- 0002:00000f40       __real@40000000            0000000140088f40     main.obj
- 0002:00000f44       __real@bf400000            0000000140088f44     main.obj
+ 0002:00000f20       __real@3ec8b439            0000000140088f20     main.obj
+ 0002:00000f24       __real@3f158106            0000000140088f24     main.obj
+ 0002:00000f28       __real@3f20d97c            0000000140088f28     main.obj
+ 0002:00000f2c       __real@3f400000            0000000140088f2c     main.obj
+ 0002:00000f30       __real@3f6dd2f2            0000000140088f30     main.obj
+ 0002:00000f34       __real@3f800000            0000000140088f34     main.obj
+ 0002:00000f38       __real@40000000            0000000140088f38     main.obj
+ 0002:00000f3c       __real@40490fdb            0000000140088f3c     main.obj
+ 0002:00000f40       __real@40c90fdb            0000000140088f40     main.obj
+ 0002:00000f44       __real@bf800000            0000000140088f44     main.obj
  0002:00000f48       __real@408f400000000000    0000000140088f48     main.obj
- 0002:00000f50       __real@bf800000            0000000140088f50     main.obj
- 0002:00000f54       __real@40490fdb            0000000140088f54     main.obj
+ 0002:00000f54       __real@40ca8f5c            0000000140088f54     main.obj
  0002:00000f58       __real@40d0468000000000    0000000140088f58     main.obj
  0002:00000f68       __real@412e848000000000    0000000140088f68     main.obj
- 0002:00000f74       __real@40c90fdb            0000000140088f74     main.obj
- 0002:00000f78       __real@4182a3d7            0000000140088f78     main.obj
- 0002:00000f7c       __real@41a00000            0000000140088f7c     main.obj
- 0002:00000f80       __real@41c80000            0000000140088f80     main.obj
- 0002:00000f84       __real@42480000            0000000140088f84     main.obj
- 0002:00000f88       __real@42c80000            0000000140088f88     main.obj
- 0002:00000f8c       __real@80000000            0000000140088f8c     main.obj
- 0002:00000f90       __real@bf000000            0000000140088f90     main.obj
+ 0002:00000f74       __real@41a00000            0000000140088f74     main.obj
+ 0002:00000f78       __real@41c80000            0000000140088f78     main.obj
+ 0002:00000f7c       __real@42480000            0000000140088f7c     main.obj
+ 0002:00000f80       __real@42c80000            0000000140088f80     main.obj
+ 0002:00000f84       __real@437a0000            0000000140088f84     main.obj
+ 0002:00000f88       __real@80000000            0000000140088f88     main.obj
+ 0002:00000f8c       __real@bf000000            0000000140088f8c     main.obj
+ 0002:00000f90       __real@bf400000            0000000140088f90     main.obj
  0002:00000fa0       __xmm@80000000800000008000000080000000 0000000140088fa0     main.obj
  0002:00000fb8       IID_ITextStoreACP          0000000140088fb8     dxguid:d3d10guid.obj
  0002:00000fd0       IID_IDXGIAdapter2          0000000140088fd0     dxguid:d3d10guid.obj
@@ -9214,10 +9213,10 @@
  0000:fff4f004       __guard_fids__             0000000140000004     LIBCMT:exe_winmain.obj
  0000:fff4f004       __guard_fids__             0000000140000004     libucrt:stdio_initializer.obj
  0000:fff4f008       __guard_fids__             0000000140000008     LIBCMT:exe_winmain.obj
- 0001:00008e90       M4fIdentity                0000000140009e90 f   main.obj
- 0001:00008fd0       M4fOrtho                   0000000140009fd0 f   main.obj
- 0001:00009f30       FatalError                 000000014000af30 f   main.obj
- 0001:00009f70       WindowProc                 000000014000af70 f   main.obj
+ 0001:00009050       M4fIdentity                000000014000a050 f   main.obj
+ 0001:00009190       M4fOrtho                   000000014000a190 f   main.obj
+ 0001:0000a1e0       FatalError                 000000014000b1e0 f   main.obj
+ 0001:0000a220       WindowProc                 000000014000b220 f   main.obj
  0001:0000af18       ?pre_c_initialization@@YAHXZ 000000014000bf18 f   LIBCMT:exe_winmain.obj
  0001:0000affc       ?post_pgo_initialization@@YAHXZ 000000014000bffc f   LIBCMT:exe_winmain.obj
  0001:0000b010       ?pre_cpp_initialization@@YAXXZ 000000014000c010 f   LIBCMT:exe_winmain.obj
@@ -11842,43 +11841,44 @@
  0002:0001c338       $xdatasym                  00000001400a4338     libvcruntime:memcmp.obj
  0002:0001c33c       $unwind$strrchr            00000001400a433c     libvcruntime:strrchr.obj
  0002:0001c344       $unwind$_local_unwind      00000001400a4344     libvcruntime:jmpuwind.obj
- 0003:00000000       $SG126028                  00000001400a5000     main.obj
- 0003:00000008       $SG126334                  00000001400a5008     main.obj
- 0003:00000030       $SG126337                  00000001400a5030     main.obj
- 0003:00000050       $SG126338                  00000001400a5050     main.obj
- 0003:0000006c       $SG126351                  00000001400a506c     main.obj
- 0003:00000070       $SG126341                  00000001400a5070     main.obj
- 0003:00000088       $SG126346                  00000001400a5088     main.obj
- 0003:00000094       $SG126350                  00000001400a5094     main.obj
- 0003:0000009c       $SG126353                  00000001400a509c     main.obj
- 0003:000000a0       $SG126348                  00000001400a50a0     main.obj
- 0003:000000ac       $SG126355                  00000001400a50ac     main.obj
- 0003:000000b0       $SG126352                  00000001400a50b0     main.obj
- 0003:000000d4       $SG126358                  00000001400a50d4     main.obj
- 0003:000000d8       $SG126354                  00000001400a50d8     main.obj
- 0003:00000104       $SG126357                  00000001400a5104     main.obj
- 0003:0000010c       $SG126363                  00000001400a510c     main.obj
- 0003:00000110       $SG126356                  00000001400a5110     main.obj
- 0003:00000140       $SG126361                  00000001400a5140     main.obj
- 0003:00000164       $SG126362                  00000001400a5164     main.obj
- 0003:00000170       $SG126366                  00000001400a5170     main.obj
- 0003:00000190       $SG126367                  00000001400a5190     main.obj
- 0003:00000198       $SG126368                  00000001400a5198     main.obj
- 0003:000001a0       $SG126371                  00000001400a51a0     main.obj
- 0003:000001d4       $SG126372                  00000001400a51d4     main.obj
- 0003:000001dc       $SG126373                  00000001400a51dc     main.obj
- 0003:000001e8       $SG126376                  00000001400a51e8     main.obj
- 0003:0000021c       $SG126377                  00000001400a521c     main.obj
- 0003:00000224       $SG126378                  00000001400a5224     main.obj
- 0003:00000230       $SG126381                  00000001400a5230     main.obj
- 0003:00000268       $SG126382                  00000001400a5268     main.obj
- 0003:00000270       $SG126383                  00000001400a5270     main.obj
- 0003:00000278       $SG126386                  00000001400a5278     main.obj
- 0003:000002ac       $SG126387                  00000001400a52ac     main.obj
- 0003:000002b8       $SG126388                  00000001400a52b8     main.obj
- 0003:000002c8       $SG126391                  00000001400a52c8     main.obj
- 0003:000002f8       $SG126399                  00000001400a52f8     main.obj
- 0003:00000318       $SG126405                  00000001400a5318     main.obj
+ 0003:00000000       $SG126045                  00000001400a5000     main.obj
+ 0003:00000008       $SG126359                  00000001400a5008     main.obj
+ 0003:00000030       $SG126362                  00000001400a5030     main.obj
+ 0003:00000050       $SG126363                  00000001400a5050     main.obj
+ 0003:0000006c       $SG126376                  00000001400a506c     main.obj
+ 0003:00000070       $SG126366                  00000001400a5070     main.obj
+ 0003:00000088       $SG126371                  00000001400a5088     main.obj
+ 0003:00000094       $SG126375                  00000001400a5094     main.obj
+ 0003:0000009c       $SG126378                  00000001400a509c     main.obj
+ 0003:000000a0       $SG126373                  00000001400a50a0     main.obj
+ 0003:000000ac       $SG126380                  00000001400a50ac     main.obj
+ 0003:000000b0       $SG126377                  00000001400a50b0     main.obj
+ 0003:000000d4       $SG126383                  00000001400a50d4     main.obj
+ 0003:000000d8       $SG126379                  00000001400a50d8     main.obj
+ 0003:00000104       $SG126382                  00000001400a5104     main.obj
+ 0003:0000010c       $SG126388                  00000001400a510c     main.obj
+ 0003:00000110       $SG126381                  00000001400a5110     main.obj
+ 0003:00000140       $SG126386                  00000001400a5140     main.obj
+ 0003:00000164       $SG126387                  00000001400a5164     main.obj
+ 0003:00000170       $SG126391                  00000001400a5170     main.obj
+ 0003:00000190       $SG126392                  00000001400a5190     main.obj
+ 0003:00000198       $SG126393                  00000001400a5198     main.obj
+ 0003:000001a0       $SG126396                  00000001400a51a0     main.obj
+ 0003:000001d4       $SG126397                  00000001400a51d4     main.obj
+ 0003:000001dc       $SG126398                  00000001400a51dc     main.obj
+ 0003:000001e8       $SG126401                  00000001400a51e8     main.obj
+ 0003:0000021c       $SG126402                  00000001400a521c     main.obj
+ 0003:00000224       $SG126403                  00000001400a5224     main.obj
+ 0003:00000230       $SG126406                  00000001400a5230     main.obj
+ 0003:00000268       $SG126407                  00000001400a5268     main.obj
+ 0003:00000270       $SG126408                  00000001400a5270     main.obj
+ 0003:00000278       $SG126411                  00000001400a5278     main.obj
+ 0003:000002ac       $SG126412                  00000001400a52ac     main.obj
+ 0003:000002b8       $SG126413                  00000001400a52b8     main.obj
+ 0003:000002c8       $SG126416                  00000001400a52c8     main.obj
+ 0003:000002f8       $SG126418                  00000001400a52f8     main.obj
+ 0003:00000308       $SG126426                  00000001400a5308     main.obj
+ 0003:00000328       $SG126436                  00000001400a5328     main.obj
  0003:00000430       ?__vcrt_flsindex@@3KA      00000001400a5430     libvcruntime:per_thread_data.obj
  0003:00000438       ?prefix@?1??getDimension@UnDecorator@@CA?AVDName@@_N@Z@4UStringLiteral@@A 00000001400a5438     libvcruntime:undname.obj
  0003:00000450       _ctype_loc_style           00000001400a5450     libucrt:wsetlocale.obj

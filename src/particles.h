@@ -52,6 +52,7 @@ struct particlesystem
   ID3D11UnorderedAccessView *UOAccessViewA;
   ID3D11UnorderedAccessView *UOAccessViewB;
   ID3D11ShaderResourceView  *ShaderResViewB;
+  ID3D11InputLayout         *ParticleLayout;
   particle *ParticlesA;
   particle *ParticlesB;
   v4u       ParticleMaxCount;
@@ -62,13 +63,16 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
 {
   particlesystem Result = {0};
   Result.ParticleMaxCount = V4u(ParticleCount, 0, 0, 0);
+  Assert(Result.ParticlesA==SIM_NULL);
+  Assert(Result.ParticlesB==SIM_NULL);
   Result.ParticlesA = malloc(Result.ParticleMaxCount.x*sizeof(particle));
   Result.ParticlesB = malloc(Result.ParticleMaxCount.x*sizeof(particle));
   MemorySet(0, Result.ParticlesA, Result.ParticleMaxCount.x*sizeof(particle));
   MemorySet(0, Result.ParticlesB, Result.ParticleMaxCount.x*sizeof(particle));
-  
-  v4f EmitterLocation = V4f(0.25f, 0.25f, 0.0f, 0.0f);
-  v4f CounsumerLocation = V4f(0.5f, 0.5f, 0.0f, 0.0f);
+  for(u32 i=0;i<Result.ParticleMaxCount.x;i++) Result.ParticlesA[i].Pos = V3f(100.0f, 100.0f, 0.0f);
+  for(u32 i=0;i<Result.ParticleMaxCount.x;i++) Result.ParticlesB[i].Pos = V3f(100.0f, 100.0f, 0.0f);
+  v4f EmitterLocation = V4f(50.f, 50.0f, 0.0f, 0.0f);
+  v4f CounsumerLocation = V4f(250.0f, 250.0f, 0.0f, 0.0f);
   v4f RandomVector = V4f(cosf(PI32/5), sinf(PI32/5), 0.0f, 0.0f);
   
   Result.ConstData.particle_render_params.EmitterLocation = EmitterLocation;
@@ -76,7 +80,7 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
   
   Result.ConstData.sim_params.EmitterLocation = EmitterLocation;
   Result.ConstData.sim_params.ConsumerLocation = CounsumerLocation;
-  Result.ConstData.sim_params.TimeFactors = V4f(16.33, 0.0f, 0.0f, 0.0f);
+  Result.ConstData.sim_params.TimeFactors = V4f(6.33, 0.0f, 0.0f, 0.0f);
   
   Result.ConstData.particle_params.EmitterLocation = EmitterLocation;
   Result.ConstData.particle_params.RandomVector = RandomVector;
@@ -221,6 +225,8 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
     Initial.pSysMem = &Result.ConstData.particle_render_params;
     ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ConstParticleRenderParams);
   }
+  
+  
   
   return Result;
 }
