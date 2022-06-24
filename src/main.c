@@ -45,7 +45,7 @@ u64 GetFileSizeFromCSTL(FILE *FileHandle)
 
 #include "str.h"
 #include "mmath.h"
-#include "particles.h"
+
 static void FatalError(const char* message)
 {
   MessageBoxA(NULL, message, "Error", MB_ICONEXCLAMATION);
@@ -113,6 +113,10 @@ f64 TimeMeasureElapsed(time_measure *Time)
   Time->MSElapsed += FrameTimeMS;
   return Time->MSDelta;
 }
+
+
+#include "particles.h"
+#include "test.h"
 
 int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, int cmdshow)
 {
@@ -268,16 +272,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
   }
   
   // vertex & pixel shaders for drawing triangle, plus input layout for vertex input
-  ID3D11InputLayout *PLayout;
+  
   ID3D11InputLayout* layout;
   ID3D11VertexShader* vshader;
   ID3D11PixelShader* pshader;
-  //paratilc systems
-  ID3D11ComputeShader  *PSysCMShader;
-  ID3D11ComputeShader  *PSysCHShader;
-  ID3D11VertexShader   *PSysVShader;
-  ID3D11GeometryShader *PSysGShader;
-  ID3D11PixelShader    *PSysPShader;
+  
   {
     // these must match vertex shader input layout (VS_INPUT in vertex shader source below)
     D3D11_INPUT_ELEMENT_DESC desc[] =
@@ -293,26 +292,19 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     ID3D11Device_CreateVertexShader(device, d3d11_vshader, sizeof(d3d11_vshader), NULL, &vshader);
     ID3D11Device_CreatePixelShader(device, d3d11_pshader, sizeof(d3d11_pshader), NULL, &pshader);
     ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
-    ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), d3d11_vshader, sizeof(d3d11_vshader), &layout);
     
 #else
-    FILE *MainShaderFile;
-    FILE *ParticleShaderFile;
-    FILE *ParticleHelperShaderFile;
-    fopen_s(&MainShaderFile          , (const char *)"F:\\Dev\\ParticleSystem\\src\\main.hlsl", "rb");
-    fopen_s(&ParticleShaderFile      , (const char *)"F:\\Dev\\ParticleSystem\\src\\particles.hlsl", "rb");
-    fopen_s(&ParticleHelperShaderFile, (const char *)"F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl", "rb");
-    str8 MainShaderSrc           = Str8FromFile(MainShaderFile);
-    str8 ParticleShaderSrc       = Str8FromFile(ParticleShaderFile);
-    str8 ParticleHelperShaderSrc = Str8FromFile(ParticleHelperShaderFile);
     
     UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS;
+    flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #ifndef NDEBUG
     flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
 #else
     flags |= D3DCOMPILE_OPTIMIZATION_LEVEL3;
 #endif
-    
+    FILE *MainShaderFile;
+    fopen_s(&MainShaderFile          , (const char *)"F:\\Dev\\ParticleSystem\\src\\main.hlsl", "rb");
+    str8 MainShaderSrc           = Str8FromFile(MainShaderFile);
     ID3DBlob* error;
     
     ID3DBlob* vblob;
@@ -333,48 +325,6 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
       Assert(!"Failed to compile pixel shader!");
     }
 #if 1
-    //Particle
-    ID3DBlob* PSysCMBlob;
-    ID3DBlob* PSysCHBlob;
-    ID3DBlob* PSysVBlob;
-    ID3DBlob* PSysGblob;
-    ID3DBlob* PSysPBlob;
-    hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "CSMAIN", "cs_5_0", flags, 0, &PSysCMBlob, &error);
-    if (FAILED(hr))
-    {
-      const char* message = ID3D10Blob_GetBufferPointer(error);
-      OutputDebugStringA(message);
-      Assert(!"Failed to compile particle sys main compute shader!");
-    }
-    hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "VSMAIN", "vs_5_0", flags, 0, &PSysVBlob, &error);
-    if (FAILED(hr))
-    {
-      const char* message = ID3D10Blob_GetBufferPointer(error);
-      OutputDebugStringA(message);
-      Assert(!"Failed to compile particle sys main vertex shader!");
-    }
-    hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "GSMAIN", "gs_5_0", flags, 0, &PSysGblob, &error);
-    if (FAILED(hr))
-    {
-      const char* message = ID3D10Blob_GetBufferPointer(error);
-      OutputDebugStringA(message);
-      Assert(!"Failed to compile particle sys main geometry shader!");
-    }
-    hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "PSMAIN", "ps_5_0", flags, 0, &PSysPBlob, &error);
-    if (FAILED(hr))
-    {
-      const char* message = ID3D10Blob_GetBufferPointer(error);
-      OutputDebugStringA(message);
-      Assert(!"Failed to compile particle sys main pixels shader!");
-    }
-    //ParticleHelper
-    hr = D3DCompile(ParticleHelperShaderSrc.Data, ParticleHelperShaderSrc.Size, NULL, NULL, NULL, "CSHELPER", "cs_5_0", flags, 0, &PSysCHBlob, &error);
-    if (FAILED(hr))
-    {
-      const char* message = ID3D10Blob_GetBufferPointer(error);
-      OutputDebugStringA(message);
-      Assert(!"Failed to compile helper compute shader!");
-    }
     
     
 #endif
@@ -384,33 +334,13 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     ID3D11Device_CreateInputLayout(device, desc, ARRAYSIZE(desc), ID3D10Blob_GetBufferPointer(vblob), ID3D10Blob_GetBufferSize(vblob), &layout);
     ID3D10Blob_Release(pblob);
     ID3D10Blob_Release(vblob);
-    //particle sys
-    ID3D11Device_CreateComputeShader(device, ID3D10Blob_GetBufferPointer(PSysCMBlob), ID3D10Blob_GetBufferSize(PSysCMBlob), NULL, &PSysCMShader);
-    ID3D11Device_CreateComputeShader(device, ID3D10Blob_GetBufferPointer(PSysCHBlob), ID3D10Blob_GetBufferSize(PSysCHBlob), NULL, &PSysCHShader);
-    ID3D11Device_CreateVertexShader  (device, ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), NULL, &PSysVShader);
-    ID3D11Device_CreateGeometryShader(device, ID3D10Blob_GetBufferPointer(PSysGblob), ID3D10Blob_GetBufferSize(PSysGblob), NULL, &PSysGShader);
-    ID3D11Device_CreatePixelShader(device, ID3D10Blob_GetBufferPointer(PSysPBlob), ID3D10Blob_GetBufferSize(PSysPBlob), NULL, &PSysPShader);
-    
-    
-    
-    D3D11_INPUT_ELEMENT_DESC Desc[] =
-    {
-      { "Position", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, sizeof(v3f), D3D11_INPUT_PER_INSTANCE_DATA, 0 },
-    };
-    ID3D11Device_CreateInputLayout(device, Desc, ARRAYSIZE(Desc), ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), &PLayout);
-    
-    ID3D10Blob_Release(PSysCMBlob);
-    ID3D10Blob_Release(PSysCHBlob);
-    ID3D10Blob_Release(PSysVBlob);
-    ID3D10Blob_Release(PSysGblob);
-    ID3D10Blob_Release(PSysPBlob);
     
 #endif
   }
   
   time_measure TimeData = InitTimeMeasure();
-  particlesystem ParticleSystem = CreateParticleSystem(device, 20, (f32)width, (f32)height);
-  ParticleSystem.ParticleLayout = PLayout;
+  //particlesystem ParticleSystem = CreateParticleSystem(device, 1024, (f32)width, (f32)height);
+  testrend       TestRenderer = CreateTestRenderer(device, context);
   ID3D11Buffer* ubuffer;
   {
     D3D11_BUFFER_DESC desc =
@@ -497,7 +427,7 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     // disable culling
     D3D11_RASTERIZER_DESC desc =
     {
-      .FillMode = D3D11_FILL_SOLID,
+      .FillMode = D3D11_FILL_WIREFRAME,
       .CullMode = D3D11_CULL_NONE,
     };
     ID3D11Device_CreateRasterizerState(device, &desc, &rasterizerState);
@@ -525,6 +455,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
   
   // show the window
   ShowWindow(window, SW_SHOWDEFAULT);
+  
+  //ParticleSystemLoadShaders(&ParticleSystem, device);
   
   LARGE_INTEGER freq, c1;
   QueryPerformanceFrequency(&freq);
@@ -554,11 +486,12 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     GetClientRect(window, &rect);
     width = rect.right - rect.left;
     height = rect.bottom - rect.top;
+    /*
     ParticleSystem.ConstData.transforms.ProjMatrix = M4fOrtho(0.0f, (f32)width,
                                                               0.0f, (f32)height,
                                                               0.0f, 100.0f);
     ParticleSystem.ConstData.sim_params.TimeFactors = V4f((f32)TimeData.MSDelta, 0.0f, 0.0f, 0.0f);
-    
+    */
     // resize swap chain if needed
     if (rtView == NULL || width != currentWidth || height != currentHeight)
     {
@@ -630,10 +563,10 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
       };
       
       // clear screen
-      FLOAT color[] = { 0.392f, 0.584f, 0.929f, 1.f };
+      FLOAT color[] = { 0.1f, 0.1f, 0.12f, 1.f };
       ID3D11DeviceContext_ClearRenderTargetView(context, rtView, color);
       ID3D11DeviceContext_ClearDepthStencilView(context, dsView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
-      
+#if 0
       // setup 4x4c rotation matrix in uniform
       {
         angle += delta * 2.0f * (float)M_PI / 20.0f; // full rotation in 20 seconds
@@ -681,92 +614,11 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
       
       // draw 3 vertices
       ID3D11DeviceContext_Draw(context, 3, 0);
+#else
+      TestDraw(&TestRenderer, context, IsFirstFrame, &viewport, rasterizerState, depthState, blendState, rtView, dsView);
+#endif
+      //ParticleSystemDraw(&ParticleSystem, context, IsFirstFrame, &viewport, rasterizerState, depthState, blendState, rtView, dsView);
       
-      
-      //~ Particle System
-      /*TODOs
-1. Supply a view and proj matrix (done)
-2. Unordered access view for defining particle count (done)
-3. Work on provideing nessaary unifrom data (done)
-4. Do const buffer mapping (done)
-5. Understand draw inderect
-***Providing Initial Data
--    1. Init data. What is the expected space(screen, clip, ect) of the data?
-  -    2. Tell UAV num expected(max) particles in buffer. (done)
-    -        - [first frame]Struft BufferA gets paraticle count
-    -        - [first frame]Struft BufferB count is 0
-    -        - [nth   frame]Struft BufferA & B count is -1 (dynamical updeted in compute shader)
-    */
-      ID3D11UnorderedAccessView *NullUAV[1] = {NULL};
-      ID3D11ShaderResourceView  *NullSRV[1] = {NULL};
-      ID3D11InputLayout         *NullLayout[1] = {NULL};
-      // Compute Shader Helper
-      ID3D11DeviceContext_CSSetConstantBuffers(context, 0, 1, &ParticleSystem.ConstParticleParams);
-      if(IsFirstFrame == 1)
-      { 
-        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 0, 1, &ParticleSystem.UOAccessViewA,
-                                                      &ParticleSystem.ParticleMaxCount.x);
-      }
-      else
-      {
-        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 0, 1, &ParticleSystem.UOAccessViewA,
-                                                      (u32 *)-1);
-      }
-      
-      ID3D11DeviceContext_CSSetShader(context, PSysCHShader, NULL, 0);
-      ID3D11DeviceContext_Dispatch(context, 64, 1, 1);
-      // Compute Shader Main
-      ID3D11DeviceContext_CSSetConstantBuffers(context, 1, 1, &ParticleSystem.ConstSimParams);
-      ID3D11DeviceContext_CSSetConstantBuffers(context, 2, 1, &ParticleSystem.ConstParticleCount);
-      // NOTE(MIGUEL): UOAccessViewA is already bound
-      //ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, &ParticleSystem.UOAccessViewA,
-      //&ParticleSystem.ParticleMaxCount.x);
-      if(IsFirstFrame == 1)
-      {
-        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, &ParticleSystem.UOAccessViewB, 0);
-      }
-      else
-      {
-        //u32 Count = (u32)-1;
-        ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, &ParticleSystem.UOAccessViewB, (u32 *)-1);
-      }
-      
-      ID3D11DeviceContext_CSSetShader(context, PSysCMShader, NULL, 0);
-      ID3D11DeviceContext_Dispatch(context, 64, 1, 1);
-      ID3D11DeviceContext_CopyStructureCount(context, ParticleSystem.IndirectDrawArgs, 4, ParticleSystem.UOAccessViewB);
-      
-      //UBIND for render
-      ID3D11DeviceContext_CSSetUnorderedAccessViews(context, 1, 1, NullUAV,
-                                                    &ParticleSystem.ParticleMaxCount.x);
-      //~RENDERICNG
-      // Input Assembler
-      ID3D11DeviceContext_IASetInputLayout(context, ParticleSystem.ParticleLayout); //NullLayout[0]
-      ID3D11DeviceContext_IASetPrimitiveTopology(context, D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-      
-      // Vertex Shader
-      ID3D11DeviceContext_VSSetConstantBuffers(context, 0, 1, &ParticleSystem.ConstUpdatedFrameData);
-      ID3D11DeviceContext_VSSetShaderResources(context, 1, 1, &ParticleSystem.ShaderResViewB);
-      ID3D11DeviceContext_VSSetShader(context, PSysVShader, NULL, 0);
-      // Geometry Shader
-      ID3D11DeviceContext_GSSetConstantBuffers(context, 0, 1, &ParticleSystem.ConstUpdatedFrameData);
-      ID3D11DeviceContext_GSSetConstantBuffers(context, 1, 1, &ParticleSystem.ConstParticleRenderParams);
-      ID3D11DeviceContext_GSSetShader(context, PSysGShader, NULL, 0);
-      // Rasterizer Stage
-      ID3D11DeviceContext_RSSetViewports(context, 1, &viewport);
-      ID3D11DeviceContext_RSSetState(context, rasterizerState);
-      // Pixel Shader
-      ID3D11DeviceContext_PSSetSamplers(context, 0, 1, &sampler);
-      ID3D11DeviceContext_PSSetShaderResources(context, 1, 1, &textureView);
-      ID3D11DeviceContext_PSSetShader(context, pshader, NULL, 0);
-      // Output Merger
-      ID3D11DeviceContext_OMSetBlendState(context, blendState, NULL, ~0U);
-      ID3D11DeviceContext_OMSetDepthStencilState(context, depthState, 0);
-      ID3D11DeviceContext_OMSetRenderTargets(context, 1, &rtView, dsView);
-      // draw 3 vertices
-      ID3D11DeviceContext_DrawInstancedIndirect(context, ParticleSystem.IndirectDrawArgs, 0);
-      
-      //UNBIND for next frame
-      ID3D11DeviceContext_VSSetShaderResources(context, 1, 1, NullSRV);
       
       IsFirstFrame = 0;
     }

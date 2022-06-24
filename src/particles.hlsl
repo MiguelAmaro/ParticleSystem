@@ -147,6 +147,7 @@ void GSMAIN(point GS_INPUT input[1], inout TriangleStream<PS_INPUT> SpriteStream
   }
   SpriteStream.RestartStrip();
 }
+
 //~ PIXEL SHADER
 Texture2D ParticleTexture : register( t0 );
 SamplerState LinearSampler : register( s0 );

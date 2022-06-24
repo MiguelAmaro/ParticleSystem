@@ -5,22 +5,22 @@
 **Is there any reason for there beeing duplicate strucured buffers in the different shaders*
 
 **Vertex data is not introducet via input assembler but some mechanism in geometry shader? Why us IndrectDraw to and point primitive type?**
+
 Particles are represente as float4s. That's it. Basically a sequence of points... We are calcing and updating pos of gpu side with minimal cpu guidance so vertex data needs to be generated at updated positions using particle float4s. Thats whey input topology point. The inderect draw call...
 
 **What exactly is gpu threading and how is work divided among threads?**
 
-**There are 2 buffers that where one hold last frams particles state and the there serves as storage for processed positions? Is is neccessary?**
+**There are 2 buffers that where one hold last frames particle state and the other serves as storage for processed positions? Is is neccessary?**
 
 **What do i get/can do with an unorderd access view? How does help me in processing the particle data?**
+
 Well more specifically the algo makes use of append and consume structured buffers which is just a more convenient way off picking up data processing them and storing. HLSL has build in functions that let you do that. Append and Consume
 
-**How excactly aret**
+
+**Do I need to set the input asssembler's topology to point primitive if it's getting bypassed?** 
 
 
-**Do i need and input layout? Also do I need to tell the input asssembler that the topology is point primitive?** 
-
-
-**Which buffer do i tell the device context to use if strucuted buffers a ping ponging?**
+**Which buffer do i tell the device context to use if strucuted buffers?**
 
 
 **What is the input layout needed for. Input assembler? Which stage relies on it?**
@@ -28,14 +28,25 @@ Well more specifically the algo makes use of append and consume structured buffe
 
 **How does the input assembler know how many vertices there are?**
 
+In this case it doesnt
+
 **Can append consume buffer write past buffer size?**
 
-I set the buffer size/max count on creation. Then with the uav i can set the count of initialize data.
+I set the buffer size/max count on creation. Then with the uav i can set the count of data stored in the buffer.
 
 # Hard Lessons
-* A resource view can't be bound to two stages at the same time. In needs to be unbounded before any subsequent setresourceblah calls are made with the same resourceview.
+* A resource view can't be bound to two stages at the same time. In needs to be unbounded before any subsequent setresourceblah calls are made with the same resourceview. 
 
-#Topic Search 
+* Make sure other resources (shaders, data, layouts) from a previouse draw call aren't bound to the stages. If those are not cleared it can affect other draw calls that expect different resources bound or resouces not to be bound in certain stages. Especially important for layouts.
+
+* Input Assembler expects at leas 32bytes of per vertex data. You can't just do pos float3/float4 and be done. It will run but data wont load correctly because the stride needs to be 32bytes or more.
+
+* Pixel shader requires the POS, TEXCOORD and COLOR semantics to be supplies by the previous shader(vertex, geometry ect)
+
+* Don't expect to see any geometetry show up on the screen if you dont set the w component of the float4 to 1.0.
+
+
+# Topic Search 
 indirect args > pipeline exec methods > 
 
 indirdraw invokes pipeline > gpu gens paricles>particle updates> copy sturct count method updates indirect args buffer >>
@@ -71,13 +82,18 @@ constant buffer registers (cb#)
 unordered registers (u#)
 and temporary registers (r#, x#)
 
-
 For a gpu dynamic particle system i am using a compute shader to update particle positions using append/consume structured buffers, A and B and UOAccess views. I need feed particle position data back into the pipline. I'm trying use a shader resource view for buffer B so that the position data is visible to the vertex shader but im not able to bind it.
+
+**Geometry Shader Overview**
+
+TriangleStream is a d3d11 buffer type that allows you to pass mesh data to the following stages.
 
 
 
 # Stash
-// alternative to hlsl compilation at runtime is to precompile shaders offline
+```c
+
+    // alternative to hlsl compilation at runtime is to precompile shaders offline
     // it improves startup time - no need to parse hlsl files at runtime!
     // and it allows to remove runtime dependency on d3dcompiler dll file
     
@@ -90,4 +106,4 @@ For a gpu dynamic particle system i am using a compute shader to update particle
     
     // you can also use "/Fo d3d11_*shader.bin" argument to save compiled shader as binary file to store with your assets
     // then provide binary data for Create*Shader functions below without need to include shader bytes in C
-    
+```
