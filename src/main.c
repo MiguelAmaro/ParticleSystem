@@ -427,7 +427,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previnstance, LPSTR cmdline, in
     // disable culling
     D3D11_RASTERIZER_DESC desc =
     {
-      .FillMode = D3D11_FILL_WIREFRAME,
+      //.FillMode = D3D11_FILL_WIREFRAME,
+      .FillMode = D3D11_FILL_SOLID,
       .CullMode = D3D11_CULL_NONE,
     };
     ID3D11Device_CreateRasterizerState(device, &desc, &rasterizerState);
