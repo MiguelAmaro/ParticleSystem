@@ -89,6 +89,7 @@ str8 Str8(u8 *String, u64 Size)
 str8 Str8FromFile(FILE *File)
 {
   str8 Result = {0};
+  Assert(File);
   u64 FileSize = GetFileSizeFromCSTL(File);
   Assert(FileSize<=U32MAX);
   Result.Data = malloc(FileSize);
@@ -126,6 +127,15 @@ static b32 Str8IsEqual(str8 a, str8 b)
   Result = (Index==0);
   return Result;
 }
+//
+//str8 Str8InsertAt(char Char, const char *StringA, const char *StringB, arena Arena)
+//{
+//str8 Result = {0};
+//Result.Data = (u8 *)String;
+//Result.Size = CStrGetSize(String, 0);
+//return Result;
+//}
+//
 
 static b32 CStrIsEqual(const char *a, const char *b)
 {

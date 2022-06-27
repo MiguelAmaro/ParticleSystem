@@ -292,8 +292,8 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
     //Used by CSMain & CSHelper
     D3D11_BUFFER_DESC Desc = {0};
     Desc.ByteWidth = Result.ParticleMaxCount.x*sizeof(particle);
+    Desc.StructureByteStride = sizeof(particle) ;
     Desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    Desc.StructureByteStride = sizeof(particle);
     Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
     Desc.Usage = D3D11_USAGE_DEFAULT;
     Desc.CPUAccessFlags = 0;

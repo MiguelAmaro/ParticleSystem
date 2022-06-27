@@ -15,7 +15,8 @@ rem ============================================================
 set MSVC_WARNINGS=^ -wd4700 -wd4820 -wd4668 -wd4577 -wd5045 -wd4505 ^
 -wd4365 -wd4305 -wd4201 -wd4100 -wd4191 -wd5246  -wd4061
 
-set MSVC_FLAGS= %MSVC_WARNINGS% -nologo -Wall -Zi -Od -Gm- -GR- -EHa- -GS- -Gs9999999
+set MSVC_FLAGS= %MSVC_WARNINGS% -nologo -Wall -Od -Gm- -GR- -EHa- -GS- -Gs9999999
+//-fsanitize=address -Zi -analyze:projectdirectory %PROJECT_DIR%
 
 set MSVC_SEARCH_DIRS=^
 -I%PROJECT_DIR%\ ^
