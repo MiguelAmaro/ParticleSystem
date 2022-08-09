@@ -66,12 +66,12 @@ void CSMAIN( uint3 DispatchThreadID : SV_DispatchThreadID  )
 //~ VERTEX SHADER
 struct VS_INPUT
 {
-  uint vertexid : SV_VertexID;
+  uint VertId : SV_VertexID;
 };
 
 struct GS_INPUT
 {
-  float3 position : Position;
+  float4 position : SV_POSITION;
 };
 
 StructuredBuffer<particle> SimState;
@@ -81,7 +81,7 @@ GS_INPUT VSMAIN( in VS_INPUT input )
   GS_INPUT output;
   // NOTE(MIGUEL): Vertex data is not coming thru the input assembler. It is stored as point data in
   //               the structured buffer, SimState. 
-  output.position.xyz = SimState[input.vertexid].Pos;
+  output.position = float4(SimState[input.VertId].Pos, 1.0);
   return output;
 }
 
@@ -130,11 +130,11 @@ static const float2 GlobalTexCoords[ 4 ] =
 void GSMAIN(point GS_INPUT input[1], inout TriangleStream<PS_INPUT> SpriteStream )
 {
   PS_INPUT Output;
-  float dist = saturate(length(input[0].position-RenderConsumerLocation.xyz)
+  float dist = saturate(length(input[0].position-RenderConsumerLocation)
                         /100.0f);
   float4 color = float4(0.2f,0.2f,1.0f,0.0f)*(dist) + float4(1.0f,0.2f,0.2f,0.0f)*(1.0f-dist);
   // Transform to view space
-  float4 viewposition = mul(float4(input[0].position,1.0f),
+  float4 viewposition = mul(input[0].position,
                             WorldViewMatrix);
   // Emit two new triangles
   for(int i=0;i<4;i++)

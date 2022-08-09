@@ -1,5 +1,3 @@
-/* date = June 18th 2022 3:47 pm */
-
 #ifndef PARTICLES_H
 #define PARTICLES_H
 
@@ -48,12 +46,15 @@ struct particlesystem
   ID3D11Buffer *ConstParticleParams;
   ID3D11Buffer *ConstParticleRenderParams;
   ID3D11Buffer *ConstUpdatedFrameData;
+  ID3D11Buffer  *DbgStageBuffer;
   ID3D11ComputeShader  *CMShader;
   ID3D11ComputeShader  *CHShader;
   ID3D11VertexShader   *VShader;
   ID3D11GeometryShader *GShader;
   ID3D11PixelShader    *PShader;
   particle_const ConstData;
+  ID3D11SamplerState* Sampler;
+  ID3D11ShaderResourceView* TextureView;
   ID3D11UnorderedAccessView *UOAccessViewA;
   ID3D11UnorderedAccessView *UOAccessViewB;
   ID3D11ShaderResourceView  *ShaderResViewB;
@@ -63,7 +64,6 @@ struct particlesystem
   v4u       ParticleMaxCount;
 };
 
-#include "memory.c"
 void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, b32 IsFirstFrame,
                         D3D11_VIEWPORT *Viewport,
                         ID3D11RasterizerState* RastState,
@@ -96,53 +96,53 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
   ID3D11ShaderResourceView  *NullSRV[1] = {NULL};
   ID3D11InputLayout         *NullLayout[1] = {NULL};
   
-  if(IsFirstFrame == 1)
-  {
-    
-    // Compute Shader Helper
-    ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &System->ConstParticleParams);
-    if(IsFirstFrame == 1)
-    { 
-      ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &System->UOAccessViewA,
-                                                    &System->ParticleMaxCount.x);
-    }
-    else
-    {
-      /*u32 Counts[1] = {-1};*/
-      ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &System->UOAccessViewA,
-                                                    (u32[]){(u32)-1});
-    }
-    
-    ID3D11DeviceContext_CSSetShader(Context, System->CHShader, NULL, 0);
-    ID3D11DeviceContext_Dispatch(Context, 1, 1, 1);
-    // Compute Shader Main
-    ID3D11DeviceContext_CSSetConstantBuffers(Context, 1, 1, &System->ConstSimParams);
-    ID3D11DeviceContext_CSSetConstantBuffers(Context, 2, 1, &System->ConstParticleCount);
-    // NOTE(MIGUEL): UOAccessViewA is already bound
-    //ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &System->UOAccessViewA,
-    //&System->ParticleMaxCount.x);
-  }
-  ID3D11DeviceContext_CopyStructureCount(Context, System->ConstParticleCount, 0, System->UOAccessViewA);
+  //- Compute Shader Helper
+  ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &System->ConstParticleParams);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &System->UOAccessViewA,
+                                                &System->ParticleMaxCount.x);
+  ID3D11DeviceContext_CSSetShader(Context, System->CHShader, NULL, 0);
+  ID3D11DeviceContext_Dispatch(Context, 1, 1, 1);
+  //- Compute Shader Main
+  ID3D11DeviceContext_CSSetConstantBuffers(Context, 1, 1, &System->ConstSimParams);
+  ID3D11DeviceContext_CSSetConstantBuffers(Context, 2, 1, &System->ConstParticleCount);
+  // NOTE(MIGUEL): UOAccessViewA is already bound
+  //ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &System->UOAccessViewA,
+  //&System->ParticleMaxCount.x);
+  // NOTE(MIGUEL): Can I readback the vertex count an binde AC buffer to differend slots
+  //               for the weird pingpong.
   
-  if(IsFirstFrame == 1)
-  {
-    ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &System->UOAccessViewB, 0);
-  }
-  else
-  {
-    ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &System->UOAccessViewB, (u32[]){(u32)-1});
-  }
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &System->UOAccessViewB, &System->ParticleMaxCount.x);
+  //ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &System->UOAccessViewB, (u32[]){(u32)-1});
+  
   ID3D11DeviceContext_CopyStructureCount(Context, System->IndirectDrawArgs, 0, System->UOAccessViewB);
+#if 1
+  //DEBUG ARGBUFFER
+  //For staging/debug
+  ID3D11DeviceContext_CopyResource(Context,
+                                   (ID3D11Resource*)System->DbgStageBuffer,
+                                   (ID3D11Resource*)System->ParticleDataB);
+  // NOTE(MIGUEL): This is not tested.
+  // TODO(MIGUEL): Verify this works.
+  D3D11GPUMemoryOp(Context,
+                   System->DbgStageBuffer,
+                   &System->ParticlesA,
+                   sizeof(u32), //particle 
+                   64,
+                   //System->ParticleMaxCount.x,
+                   GPU_MEM_READ);
   
+  ID3D11DeviceContext_CopyStructureCount(Context, System->ConstParticleCount, 0, System->UOAccessViewA);
+#endif
   ID3D11DeviceContext_CSSetShader(Context, System->CMShader, NULL, 0);
   ID3D11DeviceContext_Dispatch(Context, System->ParticleMaxCount.x/512, 1, 1); //
   
-  //UBIND for render
-  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, NullUAV, &System->ParticleMaxCount.x);
+  //Cleanup for render
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, NullUAV, 0);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, NullUAV, 0);
   //~RENDERICNG
   // Input Assembler
   ID3D11DeviceContext_IASetInputLayout(Context, NullLayout[0]); //
-  ID3D11DeviceContext_IASetPrimitiveTopology(Context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+  ID3D11DeviceContext_IASetPrimitiveTopology(Context, D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
   
   // Vertex Shader
   ID3D11DeviceContext_VSSetConstantBuffers(Context, 0, 1, &System->ConstUpdatedFrameData);
@@ -156,8 +156,8 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
   ID3D11DeviceContext_RSSetViewports(Context, 1, Viewport);
   ID3D11DeviceContext_RSSetState(Context, RastState);
   // Pixel Shader
-  //ID3D11DeviceContext_PSSetSamplers(Context, 0, 1, &sampler);
-  //ID3D11DeviceContext_PSSetShaderResources(Context, 1, 1, &textureView);
+  ID3D11DeviceContext_PSSetSamplers(Context, 0, 1, &System->Sampler);
+  ID3D11DeviceContext_PSSetShaderResources(Context, 0, 1, &System->TextureView);
   ID3D11DeviceContext_PSSetShader(Context, System->PShader, NULL, 0);
   // Output Merger
   ID3D11DeviceContext_OMSetBlendState(Context, BlendState, NULL, ~0U);
@@ -168,83 +168,30 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
   
   //UNBIND for next frame
   ID3D11DeviceContext_VSSetShaderResources(Context, 1, 1, NullSRV);
+  D3D11ClearPipeline(Context);
   return;
 }
 
 void ParticleSystemLoadShaders(particlesystem *System, ID3D11Device* Device)
 {
-  FILE *ParticleShaderFile;
-  FILE *ParticleHelperShaderFile;
-  fopen_s(&ParticleShaderFile      , (const char *)"F:\\Dev\\ParticleSystem\\src\\particles.hlsl", "rb");
-  fopen_s(&ParticleHelperShaderFile, (const char *)"F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl", "rb");
-  
-  str8 ParticleShaderSrc       = Str8FromFile(ParticleShaderFile);
-  str8 ParticleHelperShaderSrc = Str8FromFile(ParticleHelperShaderFile);
-  HRESULT hr;
-  ID3DBlob* error;
-  
-  //Particle
-  ID3DBlob* PSysCMBlob;
-  ID3DBlob* PSysCHBlob;
-  ID3DBlob* PSysVBlob;
-  ID3DBlob* PSysGblob;
-  ID3DBlob* PSysPBlob;
-  
-  UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS;
-  flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-  
-  hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "CSMAIN", "cs_5_0", flags, 0, &PSysCMBlob, &error);
-  if (FAILED(hr))
-  {
-    const char* message = ID3D10Blob_GetBufferPointer(error);
-    OutputDebugStringA(message);
-    Assert(!"Failed to compile particle sys main compute shader!");
-  }
-  hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "VSMAIN", "vs_5_0", flags, 0, &PSysVBlob, &error);
-  if (FAILED(hr))
-  {
-    const char* message = ID3D10Blob_GetBufferPointer(error);
-    OutputDebugStringA(message);
-    Assert(!"Failed to compile particle sys main vertex shader!");
-  }
-  hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "GSMAIN", "gs_5_0", flags, 0, &PSysGblob, &error);
-  if (FAILED(hr))
-  {
-    const char* message = ID3D10Blob_GetBufferPointer(error);
-    OutputDebugStringA(message);
-    Assert(!"Failed to compile particle sys main geometry shader!");
-  }
-  hr = D3DCompile(ParticleShaderSrc.Data, ParticleShaderSrc.Size, NULL, NULL, NULL, "PSMAIN", "ps_5_0", flags, 0, &PSysPBlob, &error);
-  if (FAILED(hr))
-  {
-    const char* message = ID3D10Blob_GetBufferPointer(error);
-    OutputDebugStringA(message);
-    Assert(!"Failed to compile particle sys main pixels shader!");
-  }
-  //ParticleHelper
-  hr = D3DCompile(ParticleHelperShaderSrc.Data, ParticleHelperShaderSrc.Size, NULL, NULL, NULL, "CSHELPER", "cs_5_0", flags, 0, &PSysCHBlob, &error);
-  if (FAILED(hr))
-  {
-    const char* message = ID3D10Blob_GetBufferPointer(error);
-    OutputDebugStringA(message);
-    Assert(!"Failed to compile helper compute shader!");
-  }
-  
+  ID3DBlob* PSysCMBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "CSMAIN", "cs_5_0");
+  ID3DBlob* PSysCHBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl", "CSHELPER", "cs_5_0");
+  ID3DBlob* PSysVBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "VSMAIN", "vs_5_0");
+  ID3DBlob* PSysGblob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "GSMAIN", "gs_5_0");
+  ID3DBlob* PSysPBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "PSMAIN", "ps_5_0");
   ID3D11Device_CreateComputeShader(Device, ID3D10Blob_GetBufferPointer(PSysCMBlob), ID3D10Blob_GetBufferSize(PSysCMBlob), NULL, &System->CMShader);
   ID3D11Device_CreateComputeShader(Device, ID3D10Blob_GetBufferPointer(PSysCHBlob), ID3D10Blob_GetBufferSize(PSysCHBlob), NULL, &System->CHShader);
   ID3D11Device_CreateVertexShader  (Device, ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), NULL, &System->VShader);
   ID3D11Device_CreateGeometryShader(Device, ID3D10Blob_GetBufferPointer(PSysGblob), ID3D10Blob_GetBufferSize(PSysGblob), NULL, &System->GShader);
   ID3D11Device_CreatePixelShader(Device, ID3D10Blob_GetBufferPointer(PSysPBlob), ID3D10Blob_GetBufferSize(PSysPBlob), NULL, &System->PShader);
   
-  
-  ID3D11InputLayout *PLayout;
   D3D11_INPUT_ELEMENT_DESC Desc[] =
   {
-    { "Position", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, sizeof(v3f), D3D11_INPUT_PER_INSTANCE_DATA, 0 },
+    { "IAPOS", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(particle, Pos), D3D11_INPUT_PER_VERTEX_DATA, 0 },
+    { "IAVEL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, offsetof(particle, Vel), D3D11_INPUT_PER_VERTEX_DATA, 0 },
   };
-  ID3D11Device_CreateInputLayout(Device, Desc, ARRAYSIZE(Desc), ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), &PLayout);
+  ID3D11Device_CreateInputLayout(Device, Desc, ARRAYSIZE(Desc), ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), &System->ParticleLayout);
   // NOTE(MIGUEL): Acceptign no checking that layout was created succescfully at the momoent. d3d11 will report
-  System->ParticleLayout = PLayout;
   ID3D10Blob_Release(PSysCMBlob);
   ID3D10Blob_Release(PSysCHBlob);
   ID3D10Blob_Release(PSysVBlob);
@@ -258,8 +205,8 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
 {
   particlesystem Result = {0};
   Result.ParticleMaxCount = V4u(ParticleCount, 0, 0, 0);
-  Assert(Result.ParticlesA==SIM_NULL);
-  Assert(Result.ParticlesB==SIM_NULL);
+  Assert(Result.ParticlesA==NULL);
+  Assert(Result.ParticlesB==NULL);
   Result.ParticlesA = malloc(Result.ParticleMaxCount.x*sizeof(particle));
   Result.ParticlesB = malloc(Result.ParticleMaxCount.x*sizeof(particle));
   MemorySet(0, Result.ParticlesA, Result.ParticleMaxCount.x*sizeof(particle));
@@ -268,7 +215,7 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
   for(u32 i=0;i<Result.ParticleMaxCount.x;i++) Result.ParticlesB[i].Pos = V3f(100.0f, 100.0f, 0.0f);
   v4f EmitterLocation = V4f(50.f, 50.0f, 0.0f, 0.0f);
   v4f CounsumerLocation = V4f(250.0f, 250.0f, 0.0f, 0.0f);
-  v4f RandomVector = V4f(cosf(PI32/5), sinf(PI32/5), 0.0f, 0.0f);
+  v4f RandomVector = V4f(cosf(Pi32/5), sinf(Pi32/5), 0.0f, 0.0f);
   
   Result.ConstData.particle_render_params.EmitterLocation = EmitterLocation;
   Result.ConstData.particle_render_params.ConsumerLocation = CounsumerLocation;
@@ -286,54 +233,14 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
   Result.ConstData.transforms.ProjMatrix = M4fOrtho(0.0f, WindowWidth,
                                                     0.0f, WindowHeight,
                                                     0.0f, 100.0f);
-  
   //ping pong stuct buffers(append/consume)
-  {
-    //Used by CSMain & CSHelper
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = Result.ParticleMaxCount.x*sizeof(particle);
-    Desc.StructureByteStride = sizeof(particle) ;
-    Desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Initial;
-    Initial.pSysMem = Result.ParticlesA;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ParticleDataA);
-  }
-  {
-    //Used by CSMain & CSHelper
-    D3D11_UNORDERED_ACCESS_VIEW_DESC Desc = {0};
-    Desc.Format = DXGI_FORMAT_UNKNOWN;
-    Desc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    Desc.Buffer.FirstElement = 0;
-    Desc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_APPEND;
-    Desc.Buffer.NumElements = Result.ParticleMaxCount.x;
-    ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Result.ParticleDataA, &Desc, &Result.UOAccessViewA);
-  }
-  {
-    //Used by CSMain
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = Result.ParticleMaxCount.x*sizeof(particle);
-    Desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-    Desc.StructureByteStride = sizeof(particle);
-    Desc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Initial;
-    Initial.pSysMem = Result.ParticlesB;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ParticleDataB);
-  }
-  {
-    //Used by CSMain
-    D3D11_UNORDERED_ACCESS_VIEW_DESC Desc = {0};
-    Desc.Format = DXGI_FORMAT_UNKNOWN;
-    Desc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
-    Desc.Buffer.FirstElement = 0;
-    Desc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_APPEND;
-    Desc.Buffer.NumElements = Result.ParticleMaxCount.x;
-    ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Result.ParticleDataB, &Desc, &Result.UOAccessViewB);
-  }
+  D3D11StructuredBuffer(Device, &Result.ParticleDataA, Result.ParticlesA, sizeof(particle), Result.ParticleMaxCount.x);
+  //Used by CSMain & CSHelper
+  D3D11BufferViewUA(Device, &Result.UOAccessViewA, Result.ParticleDataA, Result.ParticleMaxCount.x);
+  //Used by CSMain
+  D3D11StructuredBuffer(Device, &Result.ParticleDataB, Result.ParticlesB, sizeof(particle), Result.ParticleMaxCount.x);
+  //Used by CSMain
+  D3D11BufferViewUA(Device, &Result.UOAccessViewB, Result.ParticleDataB, Result.ParticleMaxCount.x);
   {
     //Used by VS
     // NOTE(MIGUEL): I dont know if i neeed to spec the count here doesnt the count get modified 
@@ -348,78 +255,80 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
     ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Result.ParticleDataB, &Desc, &Result.ShaderResViewB);
 #endif
   }
+  
+  //Indirect Args
+  Result.ArgBuffer[0] = 1; //VertexCountPerInstance: 4(expects quad)
+  Result.ArgBuffer[1] = 0; //InstanceCount: definede by gpu proveide via ::CopyStructCount
+  Result.ArgBuffer[2] = 0; //StartVertexLocation: not sure, no vertex buffer, quad data is generated
+  Result.ArgBuffer[3] = 0; //StartInstanceLocation: start of sturcturedbuffer(append/consume)
+  D3D11ArgsBuffer(Device, &Result.IndirectDrawArgs, Result.ArgBuffer, sizeof(Result.ArgBuffer));
+  // This is a staging buffer so its data can be read from the cpu. The contents of the ArgBuffer will be 
+  // copied to this buffer. 
+  u32 Dummy[64] = {0};
+  D3D11StageBuffer(Device, &Result.DbgStageBuffer, Dummy, sizeof(Dummy));
+  //Used By CSMain
+  D3D11ConstantBuffer(Device, &Result.ConstSimParams,
+                      &Result.ParticleMaxCount, 
+                      sizeof(Result.ConstData.sim_params));
+  //Used By CSMain
+  D3D11ConstantBuffer(Device, &Result.ConstParticleCount,
+                      &Result.ParticleMaxCount, 
+                      sizeof(v4u));
+  //Used By CSMain
+  D3D11ConstantBuffer(Device, &Result.ConstParticleParams,
+                      &Result.ConstData.particle_params, 
+                      sizeof(Result.ConstData.particle_params));
+  //Used By GSMain
+  D3D11ConstantBuffer(Device, &Result.ConstUpdatedFrameData,
+                      &Result.ConstData.transforms, 
+                      sizeof(Result.ConstData.transforms));
+  //Used By GSMain
+  D3D11ConstantBuffer(Device, &Result.ConstParticleRenderParams,
+                      &Result.ConstData.particle_render_params, 
+                      sizeof(Result.ConstData.particle_render_params));
   {
-    //Indirect Args
-    Result.ArgBuffer[0] = 1; //VertexCountPerInstance: 4(expects quad)
-    Result.ArgBuffer[1] = 0; //InstanceCount: definede by gpu proveide via ::CopyStructCount
-    Result.ArgBuffer[2] = 0; //StartVertexLocation: not sure, no vertex buffer, quad data is generated
-    Result.ArgBuffer[3] = 0; //StartInstanceLocation: start of sturcturedbuffer(append/consume)
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = sizeof(Result.ArgBuffer);
-    Desc.StructureByteStride = 0;
-    Desc.MiscFlags = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.BindFlags = 0;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Args;
-    Args.pSysMem = Result.ArgBuffer;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Args, &Result.IndirectDrawArgs);
+    // checkerboard texture, with 50% transparency on black colors
+    unsigned int pixels[] =
+    {
+      0x00000000, 0xffffffff,
+      0xffffffff, 0xffffffff,
+    };
+    UINT width = 2;
+    UINT height = 2;
+    
+    D3D11_TEXTURE2D_DESC Desc =
+    {
+      .Width = width,
+      .Height = height,
+      .MipLevels = 1,
+      .ArraySize = 1,
+      .Format = DXGI_FORMAT_R8G8B8A8_UNORM,
+      .SampleDesc = { 1, 0 },
+      .Usage = D3D11_USAGE_IMMUTABLE,
+      .BindFlags = D3D11_BIND_SHADER_RESOURCE,
+    };
+    D3D11_SUBRESOURCE_DATA Data =
+    {
+      .pSysMem = pixels,
+      .SysMemPitch = width * sizeof(unsigned int),
+    };
+    
+    ID3D11Texture2D* Texture;
+    ID3D11Device_CreateTexture2D(Device, &Desc, &Data, &Texture);
+    ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, NULL, &Result.TextureView);
+    ID3D11Texture2D_Release(Texture);
   }
   {
-    //Used By CSMain
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = sizeof(Result.ConstData.sim_params);
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Initial;
-    Initial.pSysMem = &Result.ConstData.sim_params;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ConstSimParams);
+    D3D11_SAMPLER_DESC Desc =
+    {
+      .Filter = D3D11_FILTER_MIN_MAG_MIP_POINT,
+      .AddressU = D3D11_TEXTURE_ADDRESS_WRAP,
+      .AddressV = D3D11_TEXTURE_ADDRESS_WRAP,
+      .AddressW = D3D11_TEXTURE_ADDRESS_WRAP,
+    };
+    ID3D11Device_CreateSamplerState(Device, &Desc, &Result.Sampler);
   }
-  {
-    //Used By CSMain
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = sizeof(v4u);
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Initial;
-    Initial.pSysMem = &Result.ParticleMaxCount;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ConstParticleCount);
-  }
-  {
-    //Used by CSHelper
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = sizeof(Result.ConstData.particle_params);
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Initial;
-    Initial.pSysMem = &Result.ConstData.particle_params;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ConstParticleParams);
-  }
-  {
-    //Used By GSMain
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = sizeof(Result.ConstData.transforms);
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Initial;
-    Initial.pSysMem = &Result.ConstData.transforms;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ConstUpdatedFrameData);
-  }
-  {
-    //Used By GSMain
-    D3D11_BUFFER_DESC Desc = {0};
-    Desc.ByteWidth = sizeof(Result.ConstData.particle_render_params);
-    Desc.Usage = D3D11_USAGE_DEFAULT;
-    Desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-    Desc.CPUAccessFlags = 0;
-    D3D11_SUBRESOURCE_DATA Initial;
-    Initial.pSysMem = &Result.ConstData.particle_render_params;
-    ID3D11Device_CreateBuffer(Device, &Desc, &Initial, &Result.ConstParticleRenderParams);
-  }
+  
   return Result;
 }
 

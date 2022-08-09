@@ -21,8 +21,9 @@ void CSMAIN( uint3 DispatchThreadID : SV_DispatchThreadID  )
                        DispatchThreadID.y * 10 +
                        DispatchThreadID.z * 10 * 10);
   
-  VertState[CurrThreadID].Pos += 10.0;
-  test_vert Vert = VertStateCon.Consume();
-  Vert.Pos += 30.0;
-  VertStateApp.Append(Vert);
+  VertState[CurrThreadID].Pos.y += 0.01*CurrThreadID;
+  VertState[CurrThreadID].Pos.z = CurrThreadID;
+  test_vert ACVert = VertStateCon.Consume();
+  ACVert.Pos = cos(ACVert.Pos + 30.0);
+  VertStateApp.Append(ACVert);
 }

@@ -16,9 +16,7 @@ Particles are represente as float4s. That's it. Basically a sequence of points..
 
 Well more specifically the algo makes use of append and consume structured buffers which is just a more convenient way off picking up data processing them and storing. HLSL has build in functions that let you do that. Append and Consume
 
-
 **Do I need to set the input asssembler's topology to point primitive if it's getting bypassed?** 
-
 
 **Which buffer do i tell the device context to use if strucuted buffers?**
 
@@ -34,7 +32,7 @@ In this case it doesnt
 
 I set the buffer size/max count on creation. Then with the uav i can set the count of data stored in the buffer.
 
-# Hard Lessons
+# Lessons
 * A resource view can't be bound to two stages at the same time. In needs to be unbounded before any subsequent setresourceblah calls are made with the same resourceview. 
 
 * Make sure other resources (shaders, data, layouts) from a previouse draw call aren't bound to the stages. If those are not cleared it can affect other draw calls that expect different resources bound or resouces not to be bound in certain stages. Especially important for layouts.
@@ -45,6 +43,7 @@ I set the buffer size/max count on creation. Then with the uav i can set the cou
 
 * Don't expect to see any geometetry show up on the screen if you dont set the w component of the float4 to 1.0.
 
+* Use staging buffer to debug the inderectdraw arg buffer
 
 # Topic Search 
 indirect args > pipeline exec methods > 
@@ -88,11 +87,12 @@ For a gpu dynamic particle system i am using a compute shader to update particle
 
 TriangleStream is a d3d11 buffer type that allows you to pass mesh data to the following stages.
 
+# Status
 
+...
 
 # Stash
 ```c
-
     // alternative to hlsl compilation at runtime is to precompile shaders offline
     // it improves startup time - no need to parse hlsl files at runtime!
     // and it allows to remove runtime dependency on d3dcompiler dll file

@@ -1,31 +1,27 @@
-#include "memory.h"
 
-void
-MemoryCopy(void *SrcBuffer, u32 SrcSize,
-           void *DstBuffer, u32 DstSize)
+//~ COMMON
+fn void MemoryCopy(void *SrcBuffer, u64 SrcSize,
+                   void *DstBuffer, u64 DstSize)
 {
-  
   u8* Src = (u8 *)SrcBuffer;
   u8* Dst = (u8 *)DstBuffer;
-  
-  for(u32 Index = 0;
-      Index < SrcSize && Index < DstSize;
+  for(u32 Index = 0; Index < SrcSize && Index < DstSize;
       Index++, Src++, Dst++)
-  {
-    *Dst = *Src;
-  }
-  
+  { *Dst = *Src; }
   return;
 }
-
-void MemorySet(u32 Value, void *Memory, u64 Size)
+fn void MemorySet(u32 Value, void *Memory, u64 Size)
 {
   u8 *Dest = (u8 *)Memory;
   while(Size--) {*Dest++ = (u8)Value;}
   return;
 }
-
-b32 MemoryIsEqual(u8 *a, u8 *b, u64 MemorySize)
+fn void MemoryZero(void *Address, u64 Size)
+{
+  MemorySet(0, Address, Size);
+  return;
+}
+fn b32 MemoryIsEqual(u8 *a, u8 *b, u64 MemorySize)
 {
   b32 Result = 0;
   u64 Index = MemorySize;
@@ -33,80 +29,67 @@ b32 MemoryIsEqual(u8 *a, u8 *b, u64 MemorySize)
   Result = (Index==0);
   return Result;
 }
-
-//- ARENAS 
-
-arena
-ArenaInit(arena *Arena, size_t Size, void *Base)
+fn u64 MemoryAlignFoward(u64 Address, u64 Align)
 {
-  arena Result;
-  Result.Base = Base;
-  Result.Size = Size;
-  Result.Used = 0;
-  if(Arena) { *Arena = Result; }
+  u64 Result = Address;
+  Assert(IsPowerOfTwo(Align));
+  u64 Mod = Address & (Align - 1);
+  if(Mod != 0) Result += Align - Mod;
   return Result;
 }
-
-void
-ArenaPopCount(arena *Arena, size_t Size)
+//~ ARENAS
+fn arena ArenaInit(arena *Arena, size_t Size, void *Address)
 {
-  Assert(((u8 *)Arena->Base+(Arena->Used-Size)) >= (u8 *)Arena->Base);
-  Arena->Used -= Size;
-  
-  return;
-}
-
-void
-ArenaDiscard(arena *Arena)
-{
-  // NOTE(MIGUEL): Clearing large Amounts of data e.g ~4gb 
-  //               results in a noticable slow down.
-  MemorySet(0, Arena->Base, Arena->Used);
-  
-  Arena->Base = 0;
-  Arena->Size    = 0;
-  Arena->Used    = 0;
-  
-  return;
-}
-
-void *
-ArenaPushBlock(arena *Arena, size_t Size)
-{
-  Assert((Arena->Used + Size) <= Arena->Size);
-  
-  void *NewArenaPartitionAddress  = (u8 *)Arena->Base + Arena->Used;
-  Arena->Used  += Size;
-  
-  return NewArenaPartitionAddress;
-}
-
-inline void
-ArenaZeroBlock(size_t size, void *address)
-{
-  u8 *byte = (u8 *)address;
-  
-  while(size--)
+  arena Result =
   {
-    *byte++ = 0;
-  }
-  
-  return;
-}
-
-void ArenaFreeUnused(arena *Arena)
-{
-  Assert(Arena->Used<Arena->Size);
-  Arena->Size = Arena->Used;
-  return;
-}
-
-arena ArenaTempInit(arena *Arena, arena *HostArena)
-{
-  arena Result = {0};
-  Result.Base = ((u8 *)HostArena->Base)+HostArena->Used;
-  Result.Size = HostArena->Size-HostArena->Used;
-  Result.Used = 0;
+    .Base = Address,
+    .Size = Size,
+    .CurrOffset = 0,
+    .PrevOffset = 0,
+  };
   if(Arena) { *Arena = Result; }
   return Result;
+}
+fn void ArenaPopCount(arena *Arena, size_t Size)
+{
+  //Assert(((u8 *)Arena->Base+(Arena->Used-Size)) >= (u8 *)Arena->Base);
+  //Arena->Used -= Size;
+  return;
+}
+fn void ArenaReset(arena *Arena)
+{
+  MemorySet(0, Arena->Base, Arena->CurrOffset);
+  Arena->CurrOffset = 0;
+  Arena->PrevOffset = 0;
+  return;
+}
+fn void *ArenaPushBlock(arena *Arena, u64 Size)
+{
+  u64 NewBlock = (u64)Arena->Base + (u64)Arena->CurrOffset;
+  u64 AlignedOffset = MemoryAlignFoward(NewBlock, MEMORY_DEFAULT_ALIGNMENT);
+  AlignedOffset -= (u64)Arena->Base; // is now relative offset
+  void *Result = NULL;
+  if(AlignedOffset + Size <= (u64)Arena->Size)
+  {
+    Result = (Arena->Base + AlignedOffset);
+    Arena->PrevOffset = AlignedOffset;
+    Arena->CurrOffset = AlignedOffset + Size;
+    MemorySet(0, Result, Size);
+  }
+  Assert(Result != NULL);
+  return Result;
+}
+arena_temp ArenaTempBegin(arena *Arena)
+{
+  arena_temp Temp;
+	Temp.Arena = Arena;
+	Temp.PrevOffset = Arena->PrevOffset;
+	Temp.CurrOffset = Arena->CurrOffset;
+	return Temp;
+}
+void ArenaTempEnd(arena_temp Temp)
+{
+	Temp.Arena->PrevOffset = Temp.PrevOffset;
+	Temp.Arena->CurrOffset = Temp.CurrOffset;
+  return;
 }
