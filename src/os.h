@@ -1,6 +1,55 @@
 #ifndef OS_H
 #define OS_H
 
+typedef struct time_measure time_measure;
+struct time_measure
+{
+  f64 MSDelta;
+  f64 MSElapsed;
+  u64 TickFrequency;
+  u64 WorkStartTick;
+  u64 WorkEndTick;
+  u64 WorkTickDelta;
+  f64 MicrosElapsedWorking;
+  f64 TargetMicrosPerFrame;
+  f64 TicksToMicros;
+};
+
+time_measure OSInitTimeMeasure(void)
+{
+  time_measure Result = {0};
+  Result.MSDelta   = 0.0;
+  Result.MSElapsed = 0.0;
+  Result.TickFrequency = 0;
+  Result.WorkStartTick = 0;
+  Result.WorkEndTick = 0;
+  Result.WorkTickDelta = 0;
+  Result.MicrosElapsedWorking = 0.0;
+  QueryPerformanceFrequency((LARGE_INTEGER *)&Result.TickFrequency);
+  Result.TargetMicrosPerFrame = 16666.0;
+  Result.TicksToMicros = 1000000.0/(f64)Result.TickFrequency;
+  return Result;
+}
+f64 OSTimeMeasureElapsed(time_measure *Time)
+{
+  QueryPerformanceCounter((LARGE_INTEGER *)&Time->WorkEndTick);
+  Time->WorkTickDelta  = Time->WorkEndTick - Time->WorkStartTick;
+  Time->MicrosElapsedWorking = (f64)Time->WorkTickDelta*Time->TicksToMicros;
+  u64 IdleTickDelta = 0;
+  u64 IdleStartTick = Time->WorkEndTick;
+  u64 IdleEndTick = 0;
+  f64 MicrosElapsedIdle = 0.0;
+  while((Time->MicrosElapsedWorking+MicrosElapsedIdle)<Time->TargetMicrosPerFrame)
+  {
+    QueryPerformanceCounter((LARGE_INTEGER *)&IdleEndTick);
+    IdleTickDelta = IdleEndTick-IdleStartTick;
+    MicrosElapsedIdle = (f64)IdleTickDelta*Time->TicksToMicros;
+  }
+  f64 FrameTimeMS = (Time->MicrosElapsedWorking+MicrosElapsedIdle)/1000.0;
+  Time->MSDelta    = FrameTimeMS;
+  Time->MSElapsed += FrameTimeMS;
+  return Time->MSDelta;
+}
 //~ MEMORY
 fn void *OSMemoryAlloc(u64 Size)
 {
@@ -97,6 +146,47 @@ fn b32 OSProcessMessges(void)
   }
   return ShouldQuit;
 }
-
+static LRESULT CALLBACK WindowEventProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
+{
+  switch (msg)
+  {
+    case WM_DESTROY:
+    PostQuitMessage(0);
+    return 0;
+  }
+  return DefWindowProcW(wnd, msg, wparam, lparam);
+}
+fn HWND OSWindowCreate(HINSTANCE Instance, v2s WindowDim)
+{
+  // register window class to have custom WindowProc callback
+  WNDCLASSEXW WindowClass =
+  {
+    .cbSize = sizeof(WindowClass),
+    .lpfnWndProc = WindowEventProc,
+    .hInstance = Instance,
+    .hIcon = LoadIcon(NULL, IDI_APPLICATION),
+    .hCursor = LoadCursor(NULL, IDC_ARROW),
+    .lpszClassName = L"d3d11_window_class",
+  };
+  ATOM atom = RegisterClassExW(&WindowClass);
+  Assert(atom && "Failed to register window class");
+  // window properties - width, height and style
+  // WS_EX_NOREDIRECTIONBITMAP flag here is needed to fix ugly bug with Windows 10
+  // when window is resized and DXGI swap chain uses FLIP presentation model
+  // DO NOT use it if you choose to use non-FLIP presentation model
+  DWORD exstyle = WS_EX_APPWINDOW | WS_EX_NOREDIRECTIONBITMAP;
+  DWORD style = WS_OVERLAPPEDWINDOW;
+  // uncomment in case you want fixed size window
+  //style &= ~WS_THICKFRAME & ~WS_MAXIMIZEBOX;
+  //RECT rect = { 0, 0, 1280, 720 };
+  //AdjustWindowRectEx(&rect, style, FALSE, exstyle);
+  //width = rect.right - rect.left;
+  //height = rect.bottom - rect.top;
+  // create window
+  HWND Window = CreateWindowExW(exstyle, WindowClass.lpszClassName, L"D3D11 Window", style,
+                                CW_USEDEFAULT, CW_USEDEFAULT, WindowDim.x, WindowDim.y,
+                                NULL, NULL, WindowClass.hInstance, NULL);
+  return Window;
+}
 
 #endif //OS_H
