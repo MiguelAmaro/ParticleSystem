@@ -82,7 +82,7 @@ testrend CreateTestRenderer(ID3D11Device* Device, ID3D11DeviceContext * Context)
   // copied to this buffer. 
   D3D11StageBuffer(Device, &Test.DbgStageBuffer, Test.Vertices, Test.VertexMaxCount*sizeof(test_vert));
   // This is view of the RWBuffer for the vertex shader that s
-  D3D11SRV(Device, &Test.VertexResView, Test.RWStructBuffer, Test.VertexMaxCount);
+  D3D11BufferViewSR(Device, &Test.VertexResView, Test.RWStructBuffer, Test.VertexMaxCount);
   
   // Append Consume Buffer settup.
   D3D11StructuredBuffer  (Device, &Test.AppendStructBuffer, Test.Vertices, sizeof(test_vert), Test.VertexMaxCount);
@@ -90,10 +90,10 @@ testrend CreateTestRenderer(ID3D11Device* Device, ID3D11DeviceContext * Context)
   D3D11StructuredBuffer(Device, &Test.ConsumeStructBuffer, Test.Vertices, sizeof(test_vert), Test.VertexMaxCount);
   D3D11BufferViewUAAppend(Device, &Test.ConsumeView, Test.ConsumeStructBuffer, Test.VertexMaxCount);
   // Shaders
-  ID3DBlob* VShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testvshader.hlsl", "VSMAIN", "vs_5_0");
-  ID3DBlob* PShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testpshader.hlsl", "PSMAIN", "ps_5_0");
-  ID3DBlob* GShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testgshader.hlsl", "GSMAIN", "gs_5_0");
-  ID3DBlob* CShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testcshader.hlsl", "CSMAIN", "cs_5_0");
+  ID3DBlob* VShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testvshader.hlsl", "VSMAIN", "vs_5_0", "Test System");
+  ID3DBlob* PShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testpshader.hlsl", "PSMAIN", "ps_5_0", "Test System");
+  ID3DBlob* GShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testgshader.hlsl", "GSMAIN", "gs_5_0", "Test System");
+  ID3DBlob* CShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testcshader.hlsl", "CSMAIN", "cs_5_0", "Test System");
   {
     D3D11_INPUT_ELEMENT_DESC Desc[] =
     {
@@ -113,7 +113,7 @@ testrend CreateTestRenderer(ID3D11Device* Device, ID3D11DeviceContext * Context)
   return Test;
 }
 
-void TestDraw(testrend *Test, d3d11_base *Base, b32 IsFirstFrame)
+void TestDraw(testrend *Test, d3d11_base *Base)
 {
   ID3D11DeviceContext     *Context    = Base->Context;
   D3D11_VIEWPORT           Viewport   = Base->Viewport;

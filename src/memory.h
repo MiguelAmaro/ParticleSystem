@@ -39,7 +39,6 @@ void ArenaZeroBlock(size_t size, void *address);
 arena ubArenaInit(arena *Arena, size_t Size, void *BasePtr);
 arena SubArenaPush(arena *Arena, size_t Size, void *BasePtr);
 void ArenaFreeUnused(arena *Arena);
-arena ArenaTempInit(arena *Arena, arena *HostArena);
 void ArenaReset(arena *Arena);
 
 #endif //MEMORY_H

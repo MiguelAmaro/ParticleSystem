@@ -174,11 +174,11 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
 
 void ParticleSystemLoadShaders(particlesystem *System, ID3D11Device* Device)
 {
-  ID3DBlob* PSysCMBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "CSMAIN", "cs_5_0");
-  ID3DBlob* PSysCHBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl", "CSHELPER", "cs_5_0");
-  ID3DBlob* PSysVBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "VSMAIN", "vs_5_0");
-  ID3DBlob* PSysGblob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "GSMAIN", "gs_5_0");
-  ID3DBlob* PSysPBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "PSMAIN", "ps_5_0");
+  ID3DBlob* PSysCMBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "CSMAIN", "cs_5_0", "Particle System");
+  ID3DBlob* PSysCHBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl", "CSHELPER", "cs_5_0", "Particle System");
+  ID3DBlob* PSysVBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "VSMAIN", "vs_5_0", "Particle System");
+  ID3DBlob* PSysGblob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "GSMAIN", "gs_5_0", "Particle System");
+  ID3DBlob* PSysPBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "PSMAIN", "ps_5_0", "Particle System");
   ID3D11Device_CreateComputeShader(Device, ID3D10Blob_GetBufferPointer(PSysCMBlob), ID3D10Blob_GetBufferSize(PSysCMBlob), NULL, &System->CMShader);
   ID3D11Device_CreateComputeShader(Device, ID3D10Blob_GetBufferPointer(PSysCHBlob), ID3D10Blob_GetBufferSize(PSysCHBlob), NULL, &System->CHShader);
   ID3D11Device_CreateVertexShader  (Device, ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), NULL, &System->VShader);

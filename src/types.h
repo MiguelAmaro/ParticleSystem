@@ -14,7 +14,10 @@
 #define iterate(type, current, list) for(type *current = list->Next; \
 current != NULL; \
 current = current->Next)
-
+#define foreach(a, b) for(int a=0; a<b;a++)
+#define loopblocks(curr, start, type, stride, count) for(type *curr=start; \
+(u64)curr<(u64)start+(count*sizeof(type)); \
+curr+=stride)
 #define Assert(expression) if(!(expression)){ __debugbreak(); } while (0)
 //Compile Time Assert
 #define CTASTR2(pre,post) pre ## post

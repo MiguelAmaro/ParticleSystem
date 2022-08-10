@@ -82,6 +82,7 @@ fn mm_render CreateMMRender(ID3D11Device* device, ID3D11DeviceContext* context)
     {
       0x80000000, 0xffffffff,
       0xffffffff, 0x80000000,
+      
     };
     UINT width = 2;
     UINT height = 2;
@@ -162,25 +163,16 @@ fn mm_render CreateMMRender(ID3D11Device* device, ID3D11DeviceContext* context)
   
   return Result;
 }
-fn void MMDraw(mm_render *MMRender,
-               float height, 
-               float width,
-               float delta,
-               ID3D11DeviceContext * Context,
-               D3D11_VIEWPORT viewport,
-               ID3D11RasterizerState* rasterizerState,
-               ID3D11DepthStencilState* depthState,
-               ID3D11BlendState* blendState, 
-               ID3D11RenderTargetView* rtView,
-               ID3D11DepthStencilView* dsView)
+fn void MMDraw(mm_render *MMRender, d3d11_base *Base, v2f WindowDim, float delta)
 {
+  D3D11BaseDestructure(Base);
   // setup 4x4c rotation matrix in uniform
   {
     static float angle = 0;
     angle += delta * 2.0f * (float)M_PI / 20.0f; // full rotation in 20 seconds
     angle = fmodf(angle, 2.0f * (float)M_PI);
     
-    float aspect = (float)height / width;
+    float aspect = (float)WindowDim.y/ WindowDim.x;
     float matrix[16] =
     {
       cosf(angle) * aspect, -sinf(angle), 0, 0,
@@ -207,8 +199,8 @@ fn void MMDraw(mm_render *MMRender,
   ID3D11DeviceContext_VSSetShader(Context, MMRender->vshader, NULL, 0);
   
   // Rasterizer Stage
-  ID3D11DeviceContext_RSSetViewports(Context, 1, &viewport);
-  ID3D11DeviceContext_RSSetState(Context, rasterizerState);
+  ID3D11DeviceContext_RSSetViewports(Context, 1, &Viewport);
+  ID3D11DeviceContext_RSSetState(Context, RastState);
   
   // Pixel Shader
   ID3D11DeviceContext_PSSetSamplers(Context, 0, 1, &MMRender->sampler);
@@ -216,9 +208,9 @@ fn void MMDraw(mm_render *MMRender,
   ID3D11DeviceContext_PSSetShader(Context, MMRender->pshader, NULL, 0);
   
   // Output Merger
-  ID3D11DeviceContext_OMSetBlendState(Context, blendState, NULL, ~0U);
-  ID3D11DeviceContext_OMSetDepthStencilState(Context, depthState, 0);
-  ID3D11DeviceContext_OMSetRenderTargets(Context, 1, &rtView, dsView);
+  ID3D11DeviceContext_OMSetBlendState(Context, BlendState, NULL, ~0U);
+  ID3D11DeviceContext_OMSetDepthStencilState(Context, DepthState, 0);
+  ID3D11DeviceContext_OMSetRenderTargets(Context, 1, &RTView, DSView);
   
   // draw 3 vertices
   ID3D11DeviceContext_Draw(Context, 3, 0);

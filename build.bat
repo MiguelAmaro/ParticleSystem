@@ -17,7 +17,7 @@ set SOURCES=^
 rem COMPILER(MSVC) OPTIONS
 rem ============================================================
 set MSVC_WARNINGS=^ -wd4700 -wd4820 -wd4668 -wd4577 -wd5045 -wd4505 ^
--wd4365 -wd4305 -wd4201 -wd4100 -wd4191 -wd5246  -wd4061 -wd4514 -wd5219
+-wd4365 -wd4305 -wd4201 -wd4100 -wd4191 -wd5246  -wd4061 -wd4514 -wd5219 -wd4189
 set MSVC_FLAGS= %MSVC_WARNINGS% -nologo -Wall -Zi -Od -std:c11 ^
 -DIMGUI_IMPL_API="extern \"C\"" ^
 -DCIMGUI_USE_WIN32 ^
