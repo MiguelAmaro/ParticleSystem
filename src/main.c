@@ -112,7 +112,6 @@ void UIControlCluster(ui_state *State)
   igColorEdit3("Clear Color", State->ClearColor.e, 0); // Edit 3 floats representing a color
   igSliderFloat("Slider", &State->Slider, 0.0f, 1.0f, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
   igSliderInt("System", (s32 *)&State->SysKind, 0, SysKind_Count, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
-  
   State->ComputeDoStep  = false;
   State->ComputeDoReset = false;
   igSliderInt("Resolution", (s32 *)&State->ComputeRes, COMPUTE_MIN_TEX_RES , COMPUTE_MAX_TEX_RES , NULL, 0);

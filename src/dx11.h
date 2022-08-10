@@ -297,9 +297,9 @@ fn void D3D11Tex2DStage(ID3D11Device* Device, ID3D11Texture2D **Texture, v2s Tex
   Desc.ArraySize      = 1;
   Desc.Format         = Format;
   Desc.Usage          = D3D11_USAGE_STAGING;
-  Desc.BindFlags      = D3D11_BIND_SHADER_RESOURCE;
+  Desc.BindFlags      = 0;
   Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-  Desc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0};
+  Desc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0}; //do i need?
   D3D11_SUBRESOURCE_DATA Initial = {0};
   Initial.pSysMem = Data;
   Initial.SysMemPitch = Stride*TexDim.x;
@@ -376,9 +376,9 @@ fn void D3D11Tex2DViewSR(ID3D11Device* Device, ID3D11ShaderResourceView **SRV, I
   SRVDesc.Format        = Format;
   SRVDesc.Texture2D     = (D3D11_TEX2D_SRV){0, 1}; //Mip Level, Level Count
   ID3D11Device_CreateTexture2D(Device, &Desc, &Initial, &Texture);
-  if(GetTex != NULL) *GetTex = Texture;
   ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
-  ID3D11Texture2D_Release(Texture);
+  if(GetTex != NULL) *GetTex = Texture;
+  else ID3D11Texture2D_Release(Texture);
   return;
 }
 fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format)
@@ -398,13 +398,13 @@ fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, 
   Initial.SysMemPitch = Stride*TexDim.x;
   ID3D11Texture2D *Texture;
   ID3D11Device_CreateTexture2D(Device, &TexDesc, &Initial, &Texture);
-  if(GetTex != NULL) *GetTex = Texture;
   D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {0};
   UAVDesc.ViewDimension       = D3D11_UAV_DIMENSION_TEXTURE2D;
   UAVDesc.Format              = Format;
   UAVDesc.Texture2D.MipSlice  = 0;
   ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Texture, &UAVDesc, UAV);
-  ID3D11Texture2D_Release(Texture);
+  if(GetTex != NULL) *GetTex = Texture;
+  else ID3D11Texture2D_Release(Texture);
 }
 fn void D3D11Tex2DViewSRAndUA(ID3D11Device* Device, ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, 
                               v2s TexDim, void *Data, u32 Stride, tex_format Format)
@@ -517,11 +517,11 @@ fn void *D3D11ReadBuffer(ID3D11DeviceContext *Context, ID3D11Buffer *TargetBuffe
   D3D11GPUMemoryOp(Context, StageBuffer, Result, Stride, Count, GPU_MEM_READ);
   return Result;
 }
-fn void D3D11SwapTexture(ID3D11DeviceContext *Context, ID3D11Resource *TexA, ID3D11Resource *TexB, ID3D11Resource *Stage)
+fn void D3D11Tex2DSwap(ID3D11DeviceContext *Context, ID3D11Texture2D *TexA, ID3D11Texture2D *TexB, ID3D11Texture2D *Stage)
 {
-  ID3D11DeviceContext_CopyResource(Context, TexA, Stage);
-  ID3D11DeviceContext_CopyResource(Context, TexA, TexB);
-  ID3D11DeviceContext_CopyResource(Context, Stage, TexB);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)Stage, (ID3D11Resource *)TexA);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)TexA, (ID3D11Resource *)TexB);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)TexB, (ID3D11Resource *)Stage);
   return;
 }
 #endif //DX11_HELPERS_H

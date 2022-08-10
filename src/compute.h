@@ -78,24 +78,21 @@ compute ComputeInit(d3d11_base *Base)
   f32 *WState = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, f32);
   f32 *SState = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, f32);
   v4f *DState = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, v4f);
-  TexWriteCheckered(RState, Result.TexRes);
-  TexWriteCheckered(WState, Result.TexRes);
+  foreach(Float, Result.TexRes.x*Result.TexRes.y) DState[Float] = V4f(0.0, 0.0, 0.0, 0.0);
+  //TexWriteCheckered(RState, Result.TexRes);
+  //TexWriteCheckered(WState, Result.TexRes);
   D3D11VertexBuffer(Device, &Result.VBuffer, Data, sizeof(struct vert), 6);
   //State Views
   D3D11Tex2DViewSR(Device, &Result.StateViewR , &Result.StateTexA, Result.TexRes, RState, sizeof(f32), Float_R);
   D3D11Tex2DViewUA(Device, &Result.StateViewRW, &Result.StateTexB, Result.TexRes, WState, sizeof(f32), Float_R);
   D3D11Tex2DStage(Device, &Result.StateStage, Result.TexRes, SState, sizeof(f32), Float_R); // Swap Stage
-  foreach(Float, Result.TexRes.x*Result.TexRes.y)
-  {
-    DState[Float] = V4f(0.0, 0.0, 0.0, 0.0);
-  }
   //Render Views
   D3D11Tex2DViewSRAndUA(Device, &Result.StateViewRenderP, &Result.StateViewRenderC, Result.TexRes, DState, sizeof(v4f), Float_RGBA);
   Result.SelectedTex = &Result.StateViewRenderP;
   ArenaTempEnd(Temp);
   {
     D3D11_SAMPLER_DESC Desc = {0};
-    Desc.Filter = D3D11_FILTER_MIN_MAG_MIP_POINT,
+    Desc.Filter   = D3D11_FILTER_MIN_MAG_MIP_POINT,
     Desc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP,
     Desc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP,
     Desc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP,
@@ -127,21 +124,21 @@ void ComputeDraw(compute *Compute, d3d11_base *Base, b32 DoStep, b32 DoReset)
 {
   D3D11BaseDestructure(Base);
   // COMPUTE PASS
-  if(DoStep)
+  //if(DoStep)
   {
     ID3D11DeviceContext_CSSetShader(Context, Compute->CShaderStep, NULL, 0);
     ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &Compute->StateViewR);             // Float
     ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Compute->StateViewRW, NULL);      // Float
     ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &Compute->StateViewRenderC, NULL); // Float4
-    ID3D11DeviceContext_Dispatch(Context, 1, 1, 1);
+    ID3D11DeviceContext_Dispatch(Context, Compute->TexRes.x, Compute->TexRes.y, 1);
     D3D11ClearComputeStage(Context);
-    D3D11SwapTexture(Context, Compute->StateOld, Compute->StateNew, Compute->StateStage);
+    D3D11Tex2DSwap(Context, Compute->StateTexA, Compute->StateTexB, Compute->StateStage);
   }
   if(DoReset)
   {
-    ID3D11DeviceContext_CSSetShader(Context, Compute->CShaderStep, NULL, 0);
+    ID3D11DeviceContext_CSSetShader(Context, Compute->CShaderReset, NULL, 0);
     ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Compute->StateViewRW, NULL);      // Float
-    ID3D11DeviceContext_Dispatch(Context, 1, 1, 1);
+    ID3D11DeviceContext_Dispatch(Context, Compute->TexRes.x, Compute->TexRes.y, 1);
     D3D11ClearComputeStage(Context);
   }
   // DRAW PASS

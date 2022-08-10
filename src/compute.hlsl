@@ -2,7 +2,7 @@
 //~ CONSTS
 struct uniforms
 {
-  int Resolution; //1:1
+  float2 Resolution; //1:1
 };
 
 //~COMPUTE SHADER
@@ -21,7 +21,7 @@ void ResetKernel( uint3 ThreadID : SV_DispatchThreadID  )
 [numthreads( 1, 1, 1)]
 void StepKernel( uint3 ThreadID : SV_DispatchThreadID  )
 {
-  NewState[ThreadID.xy] = OldState[ThreadID.xy] + .1;
+  NewState[ThreadID.xy] = OldState[ThreadID.xy] + .001;
   Render(ThreadID, NewState[ThreadID.xy]);
 }
 //~VERTEX SHADER
