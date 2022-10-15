@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <float.h>
 
+#define struct16 __declspec(align(16)) struct
+#define scoped_global static
 #define global
 #define fn 
 
@@ -14,7 +16,7 @@
 #define iterate(type, current, list) for(type *current = list->Next; \
 current != NULL; \
 current = current->Next)
-#define foreach(a, b) for(int a=0; a<b;a++)
+#define foreach(a, b, index_type) for(index_type a=0; a<b;a++)
 #define loopblocks(curr, start, type, stride, count) for(type *curr=start; \
 (u64)curr<(u64)start+(count*sizeof(type)); \
 curr+=stride)
@@ -67,6 +69,13 @@ typedef    double f64;
 #define S32MAX INT32_MAX
 #define S64MAX INT64_MAX
 
+
+//TIME
+typedef struct datetime datetime;
+struct datetime
+{ s16 year; u8 mon; u8 day; u8 hour; u8 min; u8 sec; u16 ms; };
+
+
 //VECTORS
 typedef union v2f v2f;
 union v2f
@@ -79,6 +88,12 @@ union v2s
 {
   struct { s32 x; s32 y; };
   s32 e[2];
+};
+typedef union v2u v2u;
+union v2u
+{
+  struct { u32 x; u32 y; };
+  u32 e[2];
 };
 typedef union v3f v3f;
 union v3f
@@ -143,6 +158,11 @@ v2s V2s(s32 x, s32 y)
   v2s Result = { x, y };
   return Result;
 }
+v2u V2u(u32 x, u32 y)
+{
+  v2u Result = { x, y };
+  return Result;
+}\
 v3f V3f(f32 x, f32 y, f32 z)
 {
   v3f Result = { x, y, z };

@@ -28,22 +28,57 @@ ID3D11RenderTargetView  *RTView     = BasePtr->RTView;          \
 ID3D11DepthStencilView  *DSView     = BasePtr->DSView;          \
 D3D11_VIEWPORT           Viewport   = BasePtr->Viewport;        
 
-
+typedef enum cpu_access cpu_access;
+enum cpu_access 
+{
+  Access_None  = 0,
+  Access_Read  = D3D11_CPU_ACCESS_READ,
+  Access_Write = D3D11_CPU_ACCESS_WRITE,
+};
+typedef enum buffer_usage buffer_usage;
+enum buffer_usage 
+{
+  Usage_Default = D3D11_USAGE_DEFAULT,
+  Usage_Dynamic = D3D11_USAGE_DYNAMIC,
+};
 typedef enum gpu_mem_op gpu_mem_op;
 enum gpu_mem_op
 {
-  GPU_MEM_READ,
-  GPU_MEM_WRITE,
+  GPU_MEM_READ  = D3D11_MAP_READ,
+  GPU_MEM_WRITE = D3D11_MAP_WRITE_DISCARD,
 };
-
 typedef enum tex_format tex_format;
 enum tex_format
 {
   Unorm_RGBA = DXGI_FORMAT_R8G8B8A8_UNORM,
+  Unorm_R    = DXGI_FORMAT_R8_UNORM,
   Float_R    = DXGI_FORMAT_R32_FLOAT,
   Float_RGBA = DXGI_FORMAT_R32G32B32A32_FLOAT,
 };
-
+typedef enum shaderkind shaderkind;
+enum shaderkind
+{
+  ShaderKind_Vertex,
+  ShaderKind_Pixel,
+  ShaderKind_Compute,
+  ShaderKind_Geometry,
+};
+typedef struct d3d11_shader d3d11_shader;
+struct d3d11_shader
+{
+  shaderkind Kind;
+  str8 Path;
+  str8 EntryName;
+  datetime LastRecordedWrite;
+  union
+  {
+    ID3D11VertexShader   *VertexHandle;
+    ID3D11PixelShader    *PixelHandle;
+    ID3D11ComputeShader  *ComputeHandle;
+    ID3D11GeometryShader *GeometryHandle;
+  };
+  ID3D11InputLayout *Layout;
+};
 fn  d3d11_base D3D11InitBase(HWND Window)
 {
   d3d11_base Base = {0};
@@ -228,8 +263,7 @@ fn void D3D11UpdateWindowSize(d3d11_base *Base, v2s WindowDim)
 fn void D3D11GPUMemoryOp(ID3D11DeviceContext * Context, ID3D11Buffer *GPUBuffer, void *CPUBuffer, u32 Stride, u32 Count, gpu_mem_op Op)
 {
   D3D11_MAPPED_SUBRESOURCE MappedBuffer =  {0};
-  D3D11_MAP MapType = (Op==GPU_MEM_READ)?D3D11_MAP_READ:D3D11_MAP_WRITE;
-  ID3D11DeviceContext_Map(Context,(ID3D11Resource *)GPUBuffer, 0, MapType, 0, &MappedBuffer);
+  ID3D11DeviceContext_Map(Context,(ID3D11Resource *)GPUBuffer, 0, Op, 0, &MappedBuffer);
   void *Dst = (Op==GPU_MEM_READ)?CPUBuffer:MappedBuffer.pData;
   void *Src = (Op==GPU_MEM_READ)?MappedBuffer.pData:CPUBuffer;
   MemoryCopy(Src, Stride*Count, Dst, Stride*Count);
@@ -263,16 +297,16 @@ fn void D3D11VertexBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Dat
   ID3D11Device_CreateBuffer(Device, &Desc, &Initial, Buffer);
   return;
 }
-fn void D3D11ConstantBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Size)
+fn void D3D11ConstantBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Size, buffer_usage Usage, cpu_access Access)
 {
   D3D11_BUFFER_DESC Desc = {0};
   Desc.ByteWidth      = Size;
-  Desc.Usage          = D3D11_USAGE_DEFAULT;
+  Desc.Usage          = Usage;
   Desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
-  Desc.CPUAccessFlags = 0;
+  Desc.CPUAccessFlags = Access;
   D3D11_SUBRESOURCE_DATA Initial;
   Initial.pSysMem = Data;
-  ID3D11Device_CreateBuffer(Device, &Desc, &Initial, Buffer);
+  ID3D11Device_CreateBuffer(Device, &Desc, Data==NULL?NULL:&Initial, Buffer);
   return;
 }
 fn void D3D11StageBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Size)
@@ -406,7 +440,8 @@ fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, 
   if(GetTex != NULL) *GetTex = Texture;
   else ID3D11Texture2D_Release(Texture);
 }
-fn void D3D11Tex2DViewSRAndUA(ID3D11Device* Device, ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, 
+fn void D3D11Tex2DViewSRAndUA(ID3D11Device* Device, ID3D11Texture2D **GetTex,
+                              ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, 
                               v2s TexDim, void *Data, u32 Stride, tex_format Format)
 {
   D3D11_TEXTURE2D_DESC TexDesc = {0};
@@ -434,32 +469,186 @@ fn void D3D11Tex2DViewSRAndUA(ID3D11Device* Device, ID3D11ShaderResourceView **S
   UAVDesc.Texture2D           = (D3D11_TEX2D_UAV){0};
   ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
   ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Texture, &UAVDesc, UAV);
-  ID3D11Texture2D_Release(Texture);
+  if(GetTex != NULL) *GetTex = Texture;
+  else ID3D11Texture2D_Release(Texture);
 }
-fn ID3DBlob *D3D11LoadAndCompileShader(char *ShaderFileDir, const char *ShaderEntry,
+fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry,
                                        const char *ShaderTypeAndVer, const char *CallerName)
 {
-  ID3DBlob *ShaderBlob, *Error;
+  ID3DBlob *ShaderBlob = NULL;
+  ID3DBlob *Error = NULL;
   HRESULT Status;
-  u8 Buffer[4096*2];
-  arena Arena     = ArenaInit(&Arena, 4096*2, &Buffer);
+  arena Arena; ArenaLocalInit(Arena, 4096*4);
   arena_temp Temp = ArenaTempBegin(&Arena);
-  str8 ShaderSrc  = OSFileRead(Str8(ShaderFileDir), Temp.Arena);
+  str8 ShaderSrc  = OSFileRead(ShaderFileDir, Temp.Arena);
   ArenaTempEnd(Temp);
   UINT flags = (D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR |
                 D3DCOMPILE_ENABLE_STRICTNESS        |
                 D3DCOMPILE_WARNINGS_ARE_ERRORS);
   flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
   Status = D3DCompile(ShaderSrc.Data, ShaderSrc.Size, NULL, NULL, NULL,
-                      (LPCSTR)ShaderEntry, (LPCSTR)ShaderTypeAndVer, flags, 0, &ShaderBlob, &Error);
+                      (LPCSTR)ShaderEntry.Data, (LPCSTR)ShaderTypeAndVer, flags, 0, &ShaderBlob, &Error);
   if (FAILED(Status))
   {
     const char* message = ID3D10Blob_GetBufferPointer(Error);
     OutputDebugStringA(message);
-    ConsoleLog(Arena, "[%s]: Failed to load shader of type %s !!!", ShaderTypeAndVer, CallerName);
-    Assert("Failed to load shader! Look at console for details");
+    ConsoleLog(Arena, "[%s]: Failed to load shader of type %s !!!\n", ShaderTypeAndVer, CallerName);
+    //Assert(!"Failed to load shader! Look at console for details");
   }
   return ShaderBlob;
+}
+fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader)
+{
+  D3D11BaseDestructure(Base);
+  datetime LastWrite = OSFileLastWriteTime(Shader->Path);
+  if(IsEqual(&LastWrite, &Shader->LastRecordedWrite, datetime)) return;
+  ID3DBlob *Blob = NULL;
+  switch(Shader->Kind)
+  {
+    case ShaderKind_Vertex:
+    {
+      ID3D11VertexShader *NewVertexShader = NULL;
+      Blob = D3D11ShaderLoadAndCompile(Shader->Path, Shader->EntryName, "vs_5_0", "Shader HotLoader");
+      if(Blob==NULL) return;
+      HRESULT Status = ID3D11Device_CreateVertexShader(Device,
+                                                       ID3D10Blob_GetBufferPointer(Blob),
+                                                       ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                       &NewVertexShader);
+      if(SUCCEEDED(Status));
+      {
+        ID3D11VertexShader_Release(Shader->VertexHandle);
+        Shader->VertexHandle = NewVertexShader;
+      }
+    } break;
+    case ShaderKind_Pixel:
+    {
+      ID3D11PixelShader *NewPixelShader = NULL;
+      Blob = D3D11ShaderLoadAndCompile(Shader->Path, Shader->EntryName, "ps_5_0", "Shader HotLoader");
+      if(Blob==NULL) return;
+      HRESULT Status = ID3D11Device_CreatePixelShader(Device,
+                                                      ID3D10Blob_GetBufferPointer(Blob),
+                                                      ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                      &NewPixelShader);
+      if(SUCCEEDED(Status));
+      {
+        ID3D11PixelShader_Release(Shader->PixelHandle);
+        Shader->PixelHandle = NewPixelShader;
+      }
+    } break;
+    case ShaderKind_Compute:
+    {
+      ID3D11ComputeShader  *NewComputeShader = NULL;
+      Blob = D3D11ShaderLoadAndCompile(Shader->Path, Shader->EntryName, "cs_5_0", "Shader HotLoader");
+      if(Blob==NULL) return;
+      HRESULT Status = ID3D11Device_CreateComputeShader(Device,
+                                                        ID3D10Blob_GetBufferPointer(Blob),
+                                                        ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                        &NewComputeShader);
+      if(SUCCEEDED(Status));
+      {
+        ID3D11ComputeShader_Release(Shader->ComputeHandle);
+        Shader->ComputeHandle = NewComputeShader;
+      }
+    } break;
+    case ShaderKind_Geometry:
+    {
+#if 0
+      ID3D11GeometryShader  **GeometryShader = (ID3D11GeometryShader  **)Shader;
+      ID3D11GeometryShader  *NewGeometryShader;
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "gs_5_0", "Shader HotLoader");
+      if(Blob==NULL) return;
+      HRESULT Status = ID3D11Device_CreateGeometryShader(Device,
+                                                         ID3D10Blob_GetBufferPointer(Blob),
+                                                         ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                         &NewGeometryShader);
+      if(SUCCEEDED(Status));
+      {
+        ID3D11GeometryShader_Release(*GeometryShader);
+        *GeometryShader = NewGeometryShader;
+      }
+#endif
+      arena Arena; ArenaLocalInit(Arena, 256);
+      ConsoleLog(Arena, "Geometry Shader Hotloadpath disabled\n");
+    } break;
+    default:
+    {
+      Assert(!"Invalid Codepath");
+    }
+  }
+  Shader->LastRecordedWrite = LastWrite;
+  return;
+}
+fn d3d11_shader D3D11ShaderCreate(shaderkind Kind,
+                                  str8 Path,
+                                  str8 EntryName,
+                                  D3D11_INPUT_ELEMENT_DESC *VElemDesc,
+                                  u32 VElemDescCount,
+                                  d3d11_base *Base)
+{
+  
+  D3D11BaseDestructure(Base);
+  //arena Arena
+  d3d11_shader Result = {0};
+  Result.Path      = Path;
+  Result.EntryName = EntryName;
+  Result.Kind      = Kind;
+  Result.LastRecordedWrite = OSFileLastWriteTime(Path);
+  ID3DBlob *Blob = NULL;
+  switch(Kind)
+  {
+    case ShaderKind_Vertex:
+    {
+      ID3D11VertexShader *NewVertexShader = NULL;
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "vs_5_0", "Shader Create");
+      HRESULT Status = ID3D11Device_CreateVertexShader(Device,
+                                                       ID3D10Blob_GetBufferPointer(Blob),
+                                                       ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                       &Result.VertexHandle);
+      ID3D11Device_CreateInputLayout(Device, VElemDesc, VElemDescCount, ID3D10Blob_GetBufferPointer(Blob), ID3D10Blob_GetBufferSize(Blob), &Result.Layout);
+    } break;
+    case ShaderKind_Pixel:
+    {
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "ps_5_0", "Shader Create");
+      HRESULT Status = ID3D11Device_CreatePixelShader(Device,
+                                                      ID3D10Blob_GetBufferPointer(Blob),
+                                                      ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                      &Result.PixelHandle);
+    } break;
+    case ShaderKind_Compute:
+    {
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "cs_5_0", "Shader Create");
+      HRESULT Status = ID3D11Device_CreateComputeShader(Device,
+                                                        ID3D10Blob_GetBufferPointer(Blob),
+                                                        ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                        &Result.ComputeHandle);
+    } break;
+    case ShaderKind_Geometry:
+    {
+#if 0
+      ID3D11GeometryShader  **GeometryShader = (ID3D11GeometryShader  **)Shader;
+      ID3D11GeometryShader  *NewGeometryShader;
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "ps_5_0", "Shader HotLoader");
+      HRESULT Status = ID3D11Device_CreateGeometryShader(Device,
+                                                         ID3D10Blob_GetBufferPointer(Blob),
+                                                         ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                         &NewGeometryShader);
+      if(SUCCEEDED(Status));
+      {
+        ID3D11GeometryShader_Release(*GeometryShader);
+        *GeometryShader = NewGeometryShader;
+      }
+#endif
+      arena Arena; ArenaLocalInit(Arena, 256);
+      ConsoleLog(Arena, "Geometry Shader Hotloadpath disabled\n");
+    } break;
+    default:
+    {
+      Assert(!"Invalid Codepath");
+    }
+  }
+  // TODO(MIGUEL): handle no blob case. It is possible that complilation fails and there is no blob
+  ID3D10Blob_Release(Blob);
+  return Result;
 }
 fn void D3D11ClearComputeStage(ID3D11DeviceContext *Context)
 {
@@ -471,9 +660,16 @@ fn void D3D11ClearComputeStage(ID3D11DeviceContext *Context)
   // Compute Shader
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, NullUAV, 0);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, NullUAV, 0);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 2, 1, NullUAV, 0);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, NullUAV, 0);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, NullSRV);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 1, 1, NullSRV);
+  ID3D11DeviceContext_CSSetShaderResources     (Context, 2, 1, NullSRV);
+  ID3D11DeviceContext_CSSetShaderResources     (Context, 3, 1, NullSRV);
+  ID3D11DeviceContext_CSSetSamplers            (Context, 0, 1, NullSampler);
+  ID3D11DeviceContext_CSSetSamplers            (Context, 1, 1, NullSampler);
   ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, NullBuffer);
+  ID3D11DeviceContext_CSSetConstantBuffers     (Context, 1, 1, NullBuffer);
   ID3D11DeviceContext_CSSetShader              (Context, NullCShader, NULL, 0);
   return;
 }
@@ -517,11 +713,19 @@ fn void *D3D11ReadBuffer(ID3D11DeviceContext *Context, ID3D11Buffer *TargetBuffe
   D3D11GPUMemoryOp(Context, StageBuffer, Result, Stride, Count, GPU_MEM_READ);
   return Result;
 }
-fn void D3D11Tex2DSwap(ID3D11DeviceContext *Context, ID3D11Texture2D *TexA, ID3D11Texture2D *TexB, ID3D11Texture2D *Stage)
+fn void D3D11Tex2DSwap(ID3D11DeviceContext *Context, ID3D11Texture2D **TexA, ID3D11Texture2D **TexB, ID3D11Texture2D *Stage)
 {
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)Stage, (ID3D11Resource *)TexA);
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)TexA, (ID3D11Resource *)TexB);
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)TexB, (ID3D11Resource *)Stage);
+#if 1
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)Stage, (ID3D11Resource *)*TexA);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)*TexA, (ID3D11Resource *)*TexB);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)*TexB, (ID3D11Resource *)Stage);
+#else
+  // NOTE(MIGUEL): Think doing this when these handles are associated with srv's is bad.
+  //               
+  ID3D11Texture2D *Temp = *TexA;
+  *TexA = *TexB;
+  *TexB = Temp;
+#endif
   return;
 }
 #endif //DX11_HELPERS_H

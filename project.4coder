@@ -37,18 +37,9 @@ commands =
 		.cursor_at_end    = false,
 	},
   
-  .build_dll =
+  .build_imgui =
   {
-		.win              = "build.bat dll",
-    .out              = "*compilation*",
-		.footer_panel     = true, 
-		.save_dirty_files = true, 
-		.cursor_at_end    = false,
-	},
-  
-  .build_test =
-  {
-		.win              = "build.bat test",
+		.win              = "build.bat imgui",
     .out              = "*compilation*",
 		.footer_panel     = true, 
 		.save_dirty_files = true, 
@@ -83,8 +74,7 @@ commands =
 fkey_command = 
 {
   .F1  = "build_exe",
-  .F2  = "build_dll",
-  .F3  = "build_test",
+  .F2  = "build_imgui",
   
   .F12 = "run",
   .F11 = "debug",

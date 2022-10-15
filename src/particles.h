@@ -174,11 +174,11 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
 
 void ParticleSystemLoadShaders(particlesystem *System, ID3D11Device* Device)
 {
-  ID3DBlob* PSysCMBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "CSMAIN", "cs_5_0", "Particle System");
-  ID3DBlob* PSysCHBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl", "CSHELPER", "cs_5_0", "Particle System");
-  ID3DBlob* PSysVBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "VSMAIN", "vs_5_0", "Particle System");
-  ID3DBlob* PSysGblob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "GSMAIN", "gs_5_0", "Particle System");
-  ID3DBlob* PSysPBlob  = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\particles.hlsl",  "PSMAIN", "ps_5_0", "Particle System");
+  ID3DBlob* PSysCMBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("CSMAIN"), "cs_5_0", "Particle System");
+  ID3DBlob* PSysCHBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl"), Str8("CSHELPER"), "cs_5_0", "Particle System");
+  ID3DBlob* PSysVBlob  = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("VSMAIN"), "vs_5_0", "Particle System");
+  ID3DBlob* PSysGblob  = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("GSMAIN"), "gs_5_0", "Particle System");
+  ID3DBlob* PSysPBlob  = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("PSMAIN"), "ps_5_0", "Particle System");
   ID3D11Device_CreateComputeShader(Device, ID3D10Blob_GetBufferPointer(PSysCMBlob), ID3D10Blob_GetBufferSize(PSysCMBlob), NULL, &System->CMShader);
   ID3D11Device_CreateComputeShader(Device, ID3D10Blob_GetBufferPointer(PSysCHBlob), ID3D10Blob_GetBufferSize(PSysCHBlob), NULL, &System->CHShader);
   ID3D11Device_CreateVertexShader  (Device, ID3D10Blob_GetBufferPointer(PSysVBlob), ID3D10Blob_GetBufferSize(PSysVBlob), NULL, &System->VShader);
@@ -269,23 +269,23 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
   //Used By CSMain
   D3D11ConstantBuffer(Device, &Result.ConstSimParams,
                       &Result.ParticleMaxCount, 
-                      sizeof(Result.ConstData.sim_params));
+                      sizeof(Result.ConstData.sim_params), Usage_Default, Access_None);
   //Used By CSMain
   D3D11ConstantBuffer(Device, &Result.ConstParticleCount,
                       &Result.ParticleMaxCount, 
-                      sizeof(v4u));
+                      sizeof(v4u), Usage_Default, Access_None);
   //Used By CSMain
   D3D11ConstantBuffer(Device, &Result.ConstParticleParams,
                       &Result.ConstData.particle_params, 
-                      sizeof(Result.ConstData.particle_params));
+                      sizeof(Result.ConstData.particle_params), Usage_Default, Access_None);
   //Used By GSMain
   D3D11ConstantBuffer(Device, &Result.ConstUpdatedFrameData,
                       &Result.ConstData.transforms, 
-                      sizeof(Result.ConstData.transforms));
+                      sizeof(Result.ConstData.transforms), Usage_Default, Access_None);
   //Used By GSMain
   D3D11ConstantBuffer(Device, &Result.ConstParticleRenderParams,
                       &Result.ConstData.particle_render_params, 
-                      sizeof(Result.ConstData.particle_render_params));
+                      sizeof(Result.ConstData.particle_render_params), Usage_Default, Access_None);
   {
     // checkerboard texture, with 50% transparency on black colors
     unsigned int pixels[] =

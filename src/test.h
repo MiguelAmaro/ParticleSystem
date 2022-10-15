@@ -90,10 +90,10 @@ testrend CreateTestRenderer(ID3D11Device* Device, ID3D11DeviceContext * Context)
   D3D11StructuredBuffer(Device, &Test.ConsumeStructBuffer, Test.Vertices, sizeof(test_vert), Test.VertexMaxCount);
   D3D11BufferViewUAAppend(Device, &Test.ConsumeView, Test.ConsumeStructBuffer, Test.VertexMaxCount);
   // Shaders
-  ID3DBlob* VShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testvshader.hlsl", "VSMAIN", "vs_5_0", "Test System");
-  ID3DBlob* PShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testpshader.hlsl", "PSMAIN", "ps_5_0", "Test System");
-  ID3DBlob* GShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testgshader.hlsl", "GSMAIN", "gs_5_0", "Test System");
-  ID3DBlob* CShaderBlob = D3D11LoadAndCompileShader("F:\\Dev\\ParticleSystem\\src\\testcshader.hlsl", "CSMAIN", "cs_5_0", "Test System");
+  ID3DBlob* VShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testvshader.hlsl"), Str8("VSMAIN"), "vs_5_0", "Test System");
+  ID3DBlob* PShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testpshader.hlsl"), Str8("PSMAIN"), "ps_5_0", "Test System");
+  ID3DBlob* GShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testgshader.hlsl"), Str8("GSMAIN"), "gs_5_0", "Test System");
+  ID3DBlob* CShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testcshader.hlsl"), Str8("CSMAIN"), "cs_5_0", "Test System");
   {
     D3D11_INPUT_ELEMENT_DESC Desc[] =
     {
@@ -132,13 +132,12 @@ void TestDraw(testrend *Test, d3d11_base *Base)
   // thead can be used to process each of the 10 verticies.
   ID3D11DeviceContext_Dispatch(Context, 1, 1, 1);
   Assert(Test->VertexMaxCount == 10); //This test requires the the number of vertices is 10.
-  u8 Buffer[4096*2];
-  arena Arena     = ArenaInit(&Arena, 4096*2, &Buffer);
+  arena Arena; ArenaLocalInit(Arena, 4096*2);
   u32        Count = Test->VertexMaxCount;
   test_vert *Verts = D3D11ReadBuffer(Context, Test->RWStructBuffer, Test->DbgStageBuffer,
                                      sizeof(test_vert), Test->VertexMaxCount, &Arena);
   ConsoleLog("D3D11 Debug Results:\n");
-  foreach(VertId, (s32)Count)
+  foreach(VertId, Count, u32)
   {
     v4f Vert = Verts[VertId].Pos;
     ConsoleLog(Arena, "[%d] {x: %f, y: %f, z: %f, w: %f}\n", VertId, Vert.x, Vert.y, Vert.z, Vert.w);

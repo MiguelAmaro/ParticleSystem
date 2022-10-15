@@ -21,12 +21,15 @@ fn void MemoryZero(void *Address, u64 Size)
   MemorySet(0, Address, Size);
   return;
 }
-fn b32 MemoryIsEqual(u8 *a, u8 *b, u64 MemorySize)
+fn b32 MemoryIsEqual(void *a, void *b, u64 MemorySize)
 {
-  b32 Result = 0;
-  u64 Index = MemorySize;
-  while((Index>0) && (a[Index-1]==b[Index-1])) { Index--; }
-  Result = (Index==0);
+  b32 Result = 1;
+  u8 *A = (u8 *)a;
+  u8 *B = (u8 *)b;
+  foreach(MemoryIndex, MemorySize, u64)
+  {
+    if(A[MemoryIndex] != B[MemoryIndex]) { Result = 0; break; }
+  }
   return Result;
 }
 fn u64 MemoryAlignFoward(u64 Address, u64 Align)

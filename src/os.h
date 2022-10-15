@@ -14,7 +14,6 @@ struct time_measure
   f64 TargetMicrosPerFrame;
   f64 TicksToMicros;
 };
-
 time_measure OSInitTimeMeasure(void)
 {
   time_measure Result = {0};
@@ -60,6 +59,7 @@ fn void *OSMemoryAlloc(u64 Size)
 //~ FILE STUFF
 fn u64 OSFileGetSize(HANDLE File)
 {
+  // TODO(MIGUEL): a random sequence of charaters followed by a comma causes this to fail. debug!!
   LARGE_INTEGER Whatever = { 0 };
   u64 Result = 0;
   b32 Status = GetFileSizeEx(File, &Whatever);
@@ -84,8 +84,35 @@ fn str8 OSFileRead(str8 Path, arena *Arena)
   CloseHandle(File);
   return Result;
 }
+fn datetime OSFileLastWriteTime(str8 FileName)
+{
+  /* Maybe usefull code
+  WIN32_FIND_DATAA *LineShaderFileInfo = &Renderer->LineShaderFileInfo;
+  FindFirstFileA(LineShaderPath,
+                 LineShaderFileInfo);
+  */
+  datetime Result = {0};
+  FILETIME   FileTime = {0};
+  SYSTEMTIME SysTime  = {0};
+  WIN32_FILE_ATTRIBUTE_DATA FileInfo;
+  // TODO(MIGUEL): Need to have proper filehadling. Crashing/breaking here not acceptable.
+  //               need when there is c hot reloading or ui to change or input file paths
+  Assert(GetFileAttributesEx((LPCSTR)FileName.Data, GetFileExInfoStandard, &FileInfo));
+  FileTime = FileInfo.ftLastWriteTime;
+  FileTimeToSystemTime(&FileTime, &SysTime);
+  Result.year = (s16)SysTime.wYear;
+  Result.mon  = (u8) SysTime.wMonth;
+  //Result.day  = SysTime.wDayOfWeek;
+  Result.day  = (u8)SysTime.wDay;
+  Result.hour = (u8)SysTime.wHour;
+  Result.min  = (u8)SysTime.wMinute;
+  Result.sec  = (u8)SysTime.wSecond;
+  Result.ms   = (u8)SysTime.wMilliseconds;
+  return Result;
+}
 //~ CONSOLE STUFF
 HANDLE gConsole = NULL;
+
 #define ConsoleLog(...) _Generic(ARG1(__VA_ARGS__), \
 arena: OSConsoleLogF, \
 char *: OSConsoleLogStrLit)(__VA_ARGS__)
