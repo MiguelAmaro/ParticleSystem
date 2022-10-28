@@ -280,7 +280,7 @@ fn void PhysarumDraw(physarum *Physarum, d3d11_base *Base, physarum_ui UIReq, u6
     .UTexRes = V2u((u32)Physarum->TexRes.x, (u32)Physarum->TexRes.y),
     .UAgentCount = UIReq.AgentCount,
     .UStepCount = StepCount,
-    .USearchRange = (f32)UIReq.SearchRange,
+    .USearchRange = (s32)UIReq.SearchRange,
     .UFieldOfView = UIReq.FieldOfView,
     .UFrameCount = (u32)FrameCount,
   };

@@ -53,6 +53,7 @@ enum tex_format
   Unorm_RGBA = DXGI_FORMAT_R8G8B8A8_UNORM,
   Unorm_R    = DXGI_FORMAT_R8_UNORM,
   Float_R    = DXGI_FORMAT_R32_FLOAT,
+  Float_RG   = DXGI_FORMAT_R32G32_FLOAT,
   Float_RGBA = DXGI_FORMAT_R32G32B32A32_FLOAT,
 };
 typedef enum shaderkind shaderkind;
@@ -478,7 +479,7 @@ fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry,
   ID3DBlob *ShaderBlob = NULL;
   ID3DBlob *Error = NULL;
   HRESULT Status;
-  arena Arena; ArenaLocalInit(Arena, 4096*4);
+  arena Arena; ArenaLocalInit(Arena, 4096*5);
   arena_temp Temp = ArenaTempBegin(&Arena);
   str8 ShaderSrc  = OSFileRead(ShaderFileDir, Temp.Arena);
   ArenaTempEnd(Temp);
@@ -552,10 +553,8 @@ fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader)
     } break;
     case ShaderKind_Geometry:
     {
-#if 0
-      ID3D11GeometryShader  **GeometryShader = (ID3D11GeometryShader  **)Shader;
-      ID3D11GeometryShader  *NewGeometryShader;
-      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "gs_5_0", "Shader HotLoader");
+      ID3D11GeometryShader  *NewGeometryShader = NULL;
+      Blob = D3D11ShaderLoadAndCompile(Shader->Path, Shader->EntryName, "gs_5_0", "Shader HotLoader");
       if(Blob==NULL) return;
       HRESULT Status = ID3D11Device_CreateGeometryShader(Device,
                                                          ID3D10Blob_GetBufferPointer(Blob),
@@ -563,18 +562,17 @@ fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader)
                                                          &NewGeometryShader);
       if(SUCCEEDED(Status));
       {
-        ID3D11GeometryShader_Release(*GeometryShader);
-        *GeometryShader = NewGeometryShader;
+        ID3D11GeometryShader_Release(Shader->GeometryHandle);
+        Shader->GeometryHandle = NewGeometryShader;
       }
-#endif
-      arena Arena; ArenaLocalInit(Arena, 256);
-      ConsoleLog(Arena, "Geometry Shader Hotloadpath disabled\n");
     } break;
     default:
     {
       Assert(!"Invalid Codepath");
     }
   }
+  arena Arena; ArenaLocalInit(Arena, 256);
+  ConsoleLog(Arena, "Reloaded Shader\n");
   Shader->LastRecordedWrite = LastWrite;
   return;
 }
@@ -585,7 +583,6 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind,
                                   u32 VElemDescCount,
                                   d3d11_base *Base)
 {
-  
   D3D11BaseDestructure(Base);
   //arena Arena
   d3d11_shader Result = {0};
@@ -594,6 +591,7 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind,
   Result.Kind      = Kind;
   Result.LastRecordedWrite = OSFileLastWriteTime(Path);
   ID3DBlob *Blob = NULL;
+  arena Arena; ArenaLocalInit(Arena, 256);
   switch(Kind)
   {
     case ShaderKind_Vertex:
@@ -624,28 +622,18 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind,
     } break;
     case ShaderKind_Geometry:
     {
-#if 0
-      ID3D11GeometryShader  **GeometryShader = (ID3D11GeometryShader  **)Shader;
-      ID3D11GeometryShader  *NewGeometryShader;
-      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "ps_5_0", "Shader HotLoader");
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "gs_5_0", "Shader Create");
       HRESULT Status = ID3D11Device_CreateGeometryShader(Device,
                                                          ID3D10Blob_GetBufferPointer(Blob),
                                                          ID3D10Blob_GetBufferSize(Blob), NULL,
-                                                         &NewGeometryShader);
-      if(SUCCEEDED(Status));
-      {
-        ID3D11GeometryShader_Release(*GeometryShader);
-        *GeometryShader = NewGeometryShader;
-      }
-#endif
-      arena Arena; ArenaLocalInit(Arena, 256);
-      ConsoleLog(Arena, "Geometry Shader Hotloadpath disabled\n");
+                                                         &Result.GeometryHandle);
     } break;
     default:
     {
       Assert(!"Invalid Codepath");
     }
   }
+  ConsoleLog(Arena, "Creating Shader\n");
   // TODO(MIGUEL): handle no blob case. It is possible that complilation fails and there is no blob
   ID3D10Blob_Release(Blob);
   return Result;

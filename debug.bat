@@ -15,9 +15,9 @@ call remedybg.exe .\debug\%DEBUG_FILE%
 goto eof
 
 :RENDERDOC
-copy build\%EXE% %cd%
+rem copy build\%EXE% %cd%
 F:\\Dev_Tools\\RenderDoc\\qrenderdoc.exe %EXE%
-del %EXE%
+rem del %EXE%
 goto eof
 
 :eof

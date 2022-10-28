@@ -211,7 +211,7 @@ fn HWND OSWindowCreate(HINSTANCE Instance, v2s WindowDim)
   //height = rect.bottom - rect.top;
   // create window
   HWND Window = CreateWindowExW(exstyle, WindowClass.lpszClassName, L"D3D11 Window", style,
-                                CW_USEDEFAULT, CW_USEDEFAULT, WindowDim.x, WindowDim.y,
+                                0, 0, WindowDim.x, WindowDim.y,
                                 NULL, NULL, WindowClass.hInstance, NULL);
   return Window;
 }
