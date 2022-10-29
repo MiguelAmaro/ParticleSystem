@@ -213,7 +213,7 @@ hit HitZero()
 float3 GetTexel(float3 p, int id)
 {
   float3 q = normalize(p);
-  float  s  = 0.2*bias(sin(UStepCount*0.002));
+  float  s  = 0.2*sin(UStepCount*0.002);
   float2 uv = float2(atan2(q.x, q.z), asin(q.y));
   
   float3 tex = 1.0;
@@ -312,33 +312,13 @@ float3 PhongLighting(hit Hit, float3 Norm)
   float3 col = (dif+amb);
   return col;
 }
-float4 PSMain(PS_INPUT Input) : SV_TARGET                      
-{  
-  float2 uv = Input.Pos.xy/UWinRes.xy;
-  float2 st = (2.0*Input.Pos.xy-UWinRes.xy)/UWinRes.y;
+
+float3 Render(ray Ray, float3 rdx, float3 rdy, float3 FallbackColor)
+{
+  float3 Color = FallbackColor;
   
-  float OrbitRad = 1.8;
-  float Vignetting = smoothstep(0.0,0.3, length(st)-0.85/OrbitRad)*0.8+0.2;
-  float3 Color = lerp(float3(.4, 0.8, 0.85), float3(1.0, 0.9, 0.85), uv.y);
-  float3 Sun = float3(1.4, 1.3, 1.2);
-#if 1
-  //RAYMARCHING
-  float3 Target = float3(0.0, 0.0, 0.0);
-  cam Cam; ray Ray;
-  float spd = 0.00001;
-  Ray.o = float3(0.01+sin(UStepCount*spd)*OrbitRad,
-                 1.0,
-                 0.01+cos(UStepCount*spd)*OrbitRad); 
-  Cam.z = normalize(Target-Ray.o);
-  Cam.x = normalize(cross(Cam.z, float3(0.0,1.0,0.0)));
-  Cam.y = normalize(cross(Cam.z,Cam.x));
-  float Focal = 1.0;
-  float3 pix = float3(st, Focal);
-  Ray.d = normalize(pix.x*Cam.x +
-                    pix.y*Cam.y +
-                    pix.z*Cam.z);
   hit Hit = CastRay(Ray);
-  if(Hit.d > 0.5)
+  if(Hit.d > -0.5)
   {
     float3 Norm = Normal(Hit.p);
     float3 lighting = 0.0;
@@ -353,9 +333,62 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
 #endif
     Color = matte*lighting;
   }
-#endif
-  //Color = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
+  
+  return Color;
+}
+
+float4 PSMain(PS_INPUT Input) : SV_TARGET                      
+{  
+  float2 uv = Input.Pos.xy/UWinRes.xy;
+  float2 st = (2.0*Input.Pos.xy-UWinRes.xy)/UWinRes.y;
+  
   //Color.xy = TexState.Sample(SamTexState, 1.0*Input.UV.xy).xy;
-  Color = pow(clamp(Color, 0.0, 1.0), 0.4545);
+  float OrbitRad = 1.8;
+  float Vignetting = smoothstep(0.3,0.0, length(st)-0.85/OrbitRad)*0.8+0.2;
+  float3 BackgroundColor = 0.0;
+  BackgroundColor = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
+  BackgroundColor *= Vignetting*lerp(float3(.4, 0.8, 0.85), float3(1.0, 0.9, 0.85), uv.y*0.0+1.);
+  
+  float3 Sun = float3(1.4, 1.3, 1.2);
+  
+  
+  float3 Target = float3(0.0, 0.0, 0.0);
+  cam Cam; ray Ray;
+  float spd = 0.001;
+  Ray.o = float3(0.01+sin(UStepCount*spd)*OrbitRad,
+                 1.0,
+                 0.01+cos(UStepCount*spd)*OrbitRad); 
+  Cam.z = normalize(Target-Ray.o);
+  Cam.x = normalize(cross(Cam.z, float3(0.0,1.0,0.0)));
+  Cam.y = normalize(cross(Cam.z,Cam.x));
+  
+#define AA (2)
+  float3 Total = 0.0;
+  for(int m=0;m<AA;m++)
+  {
+    for(int n=0;n<AA;n++)
+    {
+      float2 o = float2(m, n)/(float)AA - 0.5;
+      float2 p = (2.0*(Input.Pos.xy+o)-UWinRes.xy)/UWinRes.y; //offset version of st. so target other neigboring pixels and acculiate/blend
+      float Focal = 1.5;
+      
+      float3 pix = float3(p, Focal); 
+      Ray.d = normalize(pix.x*Cam.x + pix.y*Cam.y + pix.z*Cam.z);
+      float2 px = (2.0*(Input.Pos.xy+float2(1.0,0.0))-UWinRes.xy)/UWinRes.y;
+      float2 py = (2.0*(Input.Pos.xy+float2(0.0,1.0))-UWinRes.xy)/UWinRes.y;
+      pix = float3(px, Focal); 
+      float3 rdx = normalize(pix.x*Cam.x + pix.y*Cam.y + pix.z*Cam.z);
+      pix = float3(py, Focal); 
+      float3 rdy = normalize(pix.x*Cam.x + pix.y*Cam.y + pix.z*Cam.z);
+      
+      float3 Color = Render(Ray, rdx, rdy, BackgroundColor);
+      Color = pow(clamp(Color, 0.0, 1.0), 0.4545);
+      Total += Color;
+    }
+  }
+  
+  float3 Color = Total/AA*AA;
+  
+  //Color = pow(clamp(Color, 0.0, 1.0), 0.4545);
   return float4(Color.x, Color.y, Color.z, 1.0);
 }
