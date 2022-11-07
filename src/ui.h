@@ -1,0 +1,32 @@
+#ifndef UI_H
+#define UI_H
+typedef enum system_kind system_kind;
+enum system_kind
+{
+  SysKind_Null,
+  SysKind_Test,
+  SysKind_MM,
+  SysKind_Cca,
+  SysKind_Boids,
+  SysKind_Physarum,
+  SysKind_ReactDiffuse,
+  SysKind_Particles,
+  SysKind_Count,
+};
+const char *SysStrTable[] =
+{ "Null", "Test", "MM", "Cca", "Boids", "Physarum", "React Diffuse", "Particles", };
+typedef struct ui_state ui_state;
+struct ui_state 
+{
+  v4f  ClearColor;
+  bool ClearColorToggle;
+  bool TexToggle;
+  f32  Slider;
+  cca_ui CcaReq;
+  boids_ui BoidsReq;
+  physarum_ui PhysarumReq;
+  reactdiffuse_ui ReactDiffuseReq;
+  system_kind SysKind;
+};
+
+#endif //UI_H

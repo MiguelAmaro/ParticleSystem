@@ -37,14 +37,14 @@ RWStructuredBuffer<agent> Agents : register(u3);
 //~ FUNCTIONS
 float2 rand22(float2 p)
 {
-  float3 a = frac(p.xyx * float3(123.34, 234.34, 345.65));
+  float3 a = frac(p.xyx * float3(123.34, 234.34, 345.651));
   a += dot(a, a + 34.45);
   return frac(float2(a.x * a.y, a.y * a.z));
 }
 float2 hash2( float2 p ) // replace this by something better
 {
   p = float2( dot(p,float2(127.1,311.7)), dot(p,float2(269.5,183.3)) );
-  return -1.0 + 2.0*frac(sin(p)*43758.5453123);
+  return -1.0 + 2.0*frac(sin(p)*43758.545312);
 }
 
 float noise2( in float2 p )

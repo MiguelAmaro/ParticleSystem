@@ -79,6 +79,9 @@ struct d3d11_shader
     ID3D11GeometryShader *GeometryHandle;
   };
   ID3D11InputLayout *Layout;
+  //async reloading stuff
+  u32 Id; // id given when submiting req to get back data when processing finishes
+  datetime ReqTime; //used to see if the file was modified between when the req being made and it being fulfilled
 };
 fn  d3d11_base D3D11InitBase(HWND Window)
 {
@@ -476,6 +479,7 @@ fn void D3D11Tex2DViewSRAndUA(ID3D11Device* Device, ID3D11Texture2D **GetTex,
 fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry,
                                        const char *ShaderTypeAndVer, const char *CallerName)
 {
+  OSProfileStart();
   ID3DBlob *ShaderBlob = NULL;
   ID3DBlob *Error = NULL;
   HRESULT Status;
@@ -496,13 +500,239 @@ fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry,
     ConsoleLog(Arena, "[%s]: Failed to load shader of type %s !!!\n", ShaderTypeAndVer, CallerName);
     //Assert(!"Failed to load shader! Look at console for details");
   }
+  OSProfileEnd();
   return ShaderBlob;
+}
+/*// NOTE(MIGUEL): I want to keep D3D11ShaderHotReload() but i want an async variant that is essentially spliting
+              *                  (check & compile & shader swap) to (async:check & compile then on each frame check if should swap & swap)
+              *                  check if should hot load(file modification detected)
+              *                  if yes submit async req else ignore
+              *                  async req: ->shader obj with the new compiled shader handle & was (successfull, failed, proccessing)
+                *                  failed: get error msg for dx11
+                *                  succces: shader swap
+                *                  processing: ignore/wait till anther frame
+                *                  
+                *                  
+                *                  What is slow part of this? file loading or shader compilation. An nice api feature would be the ability
+                *                  to push and active file that is know to contain multiple shader programs. There is no reason to do re-reads
+                *                  for each shade load.
+                *                  Memoymapped io? is it worth it??
+                *                  takes: ~18.103418s for the pixelshader
+                *                  takes: ~0.03s for the pixelshader
+                *                  takes: ~0.008s for the vertex shader
+  */
+#define ASYNC_SHADER_BUFFER_SIZE 32
+typedef enum async_shader_status async_shader_status;
+enum async_shader_status
+{
+  //enums [0: BUFFERSIZE-1] reserved for indexing into the shader array
+  //enum  [BUFFERSIZE] reseved for invalid key
+  ASYNC_SHADER_STATUS_Processing = (ASYNC_SHADER_BUFFER_SIZE + 1),
+  ASYNC_SHADER_STATUS_Finished = (ASYNC_SHADER_BUFFER_SIZE + 2),
+  ASYNC_SHADER_STATUS_Unable = (ASYNC_SHADER_BUFFER_SIZE + 3),
+  ASYNC_SHADER_STATUS_NULL = (ASYNC_SHADER_BUFFER_SIZE + 4),
+};
+#define ASYNC_SHADER_STATUS_RequestSubmitted(code) (code<ASYNC_SHADER_BUFFER_SIZE)
+#define ASYNC_SHADER_LOADER_invalidKey ASYNC_SHADER_BUFFER_SIZE
+typedef struct async_shader_load_entry async_shader_load_entry;
+struct async_shader_load_entry
+{
+  d3d11_shader Shader;
+  async_shader_status Status;
+};
+typedef struct async_shader_load async_shader_load;
+struct async_shader_load
+{
+  // NOTE(MIGUEL): shader to load aand compiles
+  async_shader_load_entry Entries[ASYNC_SHADER_BUFFER_SIZE];
+  u32 Count;
+  d3d11_base *Base;
+  b32 IsInitialized;
+};
+global async_shader_load ShaderLoader = {0};
+
+fn static DWORD WINAPI AsyncShaderLoader(void *Param)
+{
+  async_shader_load *Load = (async_shader_load *)Param;
+  D3D11BaseDestructure(Load->Base);
+  while(1)
+  {
+    for(u32 EntryId = 0; EntryId<ASYNC_SHADER_BUFFER_SIZE; EntryId++)
+    {
+      async_shader_load_entry *Entry = &Load->Entries[EntryId];
+      if(Entry->Status == ASYNC_SHADER_STATUS_Processing)
+      {
+        ID3DBlob *Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "vs_5_0", __FUNCTION__);
+        if(Blob==NULL)
+        {
+          // NOTE(MIGUEL): Interlocked exchange here
+          Entry->Status = ASYNC_SHADER_STATUS_Unable;
+          continue;
+        }
+        ID3D10Blob_Release(Blob);
+        HRESULT Status;
+        switch(Entry->Shader.Kind)
+        {
+          case ShaderKind_Vertex:
+          {
+            Status = ID3D11Device_CreateVertexShader(Device,
+                                                     ID3D10Blob_GetBufferPointer(Blob),
+                                                     ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                     &Entry->Shader.VertexHandle);
+          } break;
+          case ShaderKind_Pixel:
+          {
+            Status = ID3D11Device_CreatePixelShader(Device,
+                                                    ID3D10Blob_GetBufferPointer(Blob),
+                                                    ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                    &Entry->Shader.PixelHandle);
+          } break;
+          case ShaderKind_Compute:
+          {
+            Status = ID3D11Device_CreateComputeShader(Device,
+                                                      ID3D10Blob_GetBufferPointer(Blob),
+                                                      ID3D10Blob_GetBufferSize(Blob), NULL,
+                                                      &Entry->Shader.ComputeHandle);
+          }
+        }
+        
+        if(SUCCEEDED(Status))
+        {
+          //EntyBlob assign
+          Entry->Status = ASYNC_SHADER_STATUS_Finished;
+        }
+        else
+        {
+          // NOTE(MIGUEL): Interlocked exchange here
+          Entry->Status = ASYNC_SHADER_STATUS_Unable;
+          continue;
+        }
+        //Update status interlocked
+        Load->Count--;
+      }
+    }
+  }
+  ExitThread(0);
+}
+fn void D3D11AsyncShaderLoaderInit(async_shader_load *Loader, d3d11_base *Base)
+{
+  if(!Loader->IsInitialized)
+  {
+    foreach(EntryId, ASYNC_SHADER_BUFFER_SIZE, u32)
+    {
+      Loader->Entries[EntryId].Status = ASYNC_SHADER_STATUS_NULL;
+    }
+    Loader->Count = 0;
+    Loader->Base = Base;
+    Loader->IsInitialized = 1;
+    {
+      DWORD ThreadId = 0;
+      HANDLE ThreadHandle = CreateThread(0, 0, AsyncShaderLoader, &ShaderLoader,0, &ThreadId);
+    }
+  }
+  return;
+}
+fn async_shader_status D3D11ShaderAsyncLoadAndCompile(d3d11_base *Base, d3d11_shader *Shader, datetime ReqTime)
+{
+  //decide weather to submit req wait or handle request result
+  //first load or finish some other load
+  // NOTE(MIGUEL): Key is invalid meaning it's not associeated with an ongoing request so
+  //               we are free to submit a new request and get a valid key to retrieve data 
+  //               after request is fulfilled.
+  if(Shader->Id == ASYNC_SHADER_LOADER_invalidKey)
+  {
+    async_shader_load_entry *Entry = ShaderLoader.Entries;
+    u32 EntryId = 0;
+    for(; EntryId<ASYNC_SHADER_BUFFER_SIZE; EntryId++)
+    {
+      Entry = Entry+EntryId;
+      if(Entry->Status == ASYNC_SHADER_STATUS_NULL) break;
+    }
+    Shader->Id      = EntryId;
+    Shader->ReqTime = ReqTime;
+    Entry->Status = ASYNC_SHADER_STATUS_Processing;
+    //make a deep copy for file path and stuff. shader handle will be overwriten with new handle.
+    //if compile is successfull
+    Entry->Shader = *Shader;
+    return ASYNC_SHADER_STATUS_Processing;
+  }
+  // NOTE(MIGUEL): the key is asoccieated with an ongoing request so the req status needs
+  //               to be looked at. was is fulfilled or not or is it still processing?.
+  async_shader_load_entry *Entry = &ShaderLoader.Entries[Shader->Id];
+  if(Entry->Status == ASYNC_SHADER_STATUS_Finished)
+  {
+    //interlocked?
+    Entry->Status = ASYNC_SHADER_STATUS_NULL;
+    // NOTE(MIGUEL): req fulfilled do the swap
+    switch(Shader->Kind)
+    {
+      case ShaderKind_Vertex:
+      {
+        ID3D11VertexShader_Release(Shader->VertexHandle);
+        Shader->VertexHandle = Entry->Shader.VertexHandle;
+      } break;
+      case ShaderKind_Pixel:
+      {
+        ID3D11VertexShader_Release(Shader->PixelHandle);
+        Shader->PixelHandle = Entry->Shader.PixelHandle;
+      } break;
+      case ShaderKind_Compute:
+      {
+        ID3D11VertexShader_Release(Shader->ComputeHandle);
+        Shader->ComputeHandle = Entry->Shader.ComputeHandle;
+      } break;
+      default: { } break;
+    };
+    return ASYNC_SHADER_STATUS_Finished;
+  }
+  else if(Entry->Status == ASYNC_SHADER_STATUS_Processing)
+  {
+    // NOTE(MIGUEL): need to keep waiting.
+    return ASYNC_SHADER_STATUS_Processing;
+  }
+  else if(Entry->Status == ASYNC_SHADER_STATUS_Unable)
+  {
+    Shader->Id = ASYNC_SHADER_LOADER_invalidKey;
+    Entry->Status = ASYNC_SHADER_STATUS_NULL;
+    return ASYNC_SHADER_STATUS_Unable;
+  }
+  else
+  {
+    Assert(!"Invalid Codepath");
+    return ASYNC_SHADER_STATUS_NULL;
+  }
+}
+fn void D3D11ShaderAsyncHotReload(d3d11_base *Base, d3d11_shader *Shader)
+{
+  D3D11BaseDestructure(Base);
+  datetime LastWrite = OSFileLastWriteTime(Shader->Path);
+  if(IsEqual(&LastWrite, &Shader->LastRecordedWrite, datetime)) return;
+  ID3DBlob *Blob = NULL;
+  D3D11AsyncShaderLoaderInit(&ShaderLoader, Base);
+  async_shader_status Status = D3D11ShaderAsyncLoadAndCompile(Base, Shader, LastWrite);
+  switch(Status)
+  {
+    case ASYNC_SHADER_STATUS_Processing:
+    { } break;
+    case ASYNC_SHADER_STATUS_Unable:
+    { } break;
+    case ASYNC_SHADER_STATUS_Finished:
+    {
+      Shader->LastRecordedWrite = LastWrite;
+    } break;
+    case ASYNC_SHADER_STATUS_NULL:
+    { 
+      Assert(!"Invalid Codepath");
+    } break;
+  }
+  return;
 }
 fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader)
 {
   D3D11BaseDestructure(Base);
   datetime LastWrite = OSFileLastWriteTime(Shader->Path);
   if(IsEqual(&LastWrite, &Shader->LastRecordedWrite, datetime)) return;
+  OSProfileStart();
   ID3DBlob *Blob = NULL;
   switch(Shader->Kind)
   {
@@ -574,6 +804,7 @@ fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader)
   arena Arena; ArenaLocalInit(Arena, 256);
   ConsoleLog(Arena, "Reloaded Shader\n");
   Shader->LastRecordedWrite = LastWrite;
+  OSProfileEnd();
   return;
 }
 fn d3d11_shader D3D11ShaderCreate(shaderkind Kind,
@@ -585,11 +816,14 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind,
 {
   D3D11BaseDestructure(Base);
   //arena Arena
+  OSProfileStart();
   d3d11_shader Result = {0};
   Result.Path      = Path;
   Result.EntryName = EntryName;
   Result.Kind      = Kind;
   Result.LastRecordedWrite = OSFileLastWriteTime(Path);
+  Result.Id = ASYNC_SHADER_LOADER_invalidKey;
+  MemoryZero(&Result.ReqTime, sizeof(Result.Id));
   ID3DBlob *Blob = NULL;
   arena Arena; ArenaLocalInit(Arena, 256);
   switch(Kind)
@@ -636,6 +870,7 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind,
   ConsoleLog(Arena, "Creating Shader\n");
   // TODO(MIGUEL): handle no blob case. It is possible that complilation fails and there is no blob
   ID3D10Blob_Release(Blob);
+  OSProfileEnd();
   return Result;
 }
 fn void D3D11ClearComputeStage(ID3D11DeviceContext *Context)

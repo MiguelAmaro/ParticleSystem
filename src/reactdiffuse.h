@@ -56,14 +56,30 @@ struct reactdiffuse
   d3d11_shader Vertex;
   d3d11_shader Pixel;
   arena Arena; //only textures
+  reactdiffuse_ui UIState;
 };
-reactdiffuse ReactDiffuseInit(d3d11_base *Base, reactdiffuse_ui Req)
+reactdiffuse_ui ReactDiffuseUIStateInit(void)
+{
+  reactdiffuse_ui Result = 
+  {
+    .TexRes = REACTDIFFUSE_MAX_TEX_RES,
+    .StepsPerFrame = 1,
+    .StepMod = 1,
+    .AutoStep = true,
+    .DoStep = false,
+    .DoReset = false,
+  };
+  return Result;
+}
+reactdiffuse ReactDiffuseInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);
   reactdiffuse Result = {0};
   u64 MemSize = Gigabytes(2);
   Result.Arena = ArenaInit(NULL, MemSize, OSMemoryAlloc(MemSize));
-  Result.TexRes = V2s((u32)Req.TexRes, (u32)Req.TexRes);
+  // NOTE(MIGUEL): In the following lines the tex resolution is determinded by UIState Initizaiton
+  Result.UIState = ReactDiffuseUIStateInit();
+  Result.TexRes = V2s((u32)Result.UIState.TexRes, (u32)Result.UIState.TexRes);
   struct vert { v3f Pos; v3f TexCoord; }; // NOTE(MIGUEL): update changes in draw.
   struct vert Data[6] =
   {
@@ -177,6 +193,7 @@ void ReactDiffuseReset(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffus
 }
 void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse_ui UIReq, u64 FrameCount, v2u WinRes)
 {
+  OSProfileStart();
   D3D11BaseDestructure(Base);
   scoped_global u32 StepCount = 0;
   // REACTDIFFUSE PASS
@@ -228,6 +245,7 @@ void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse
   ID3D11DeviceContext_OMSetRenderTargets(Context, 1, &RTView, DSView);
   ID3D11DeviceContext_Draw(Context, 6, 0);
   D3D11ClearPipeline(Context);
+  OSProfileEnd();
   return;
 }
 

@@ -1,54 +1,79 @@
 #ifndef OS_H
 #define OS_H
 
+typedef struct time_entry time_entry;
+struct time_entry
+{
+  u64 WorkBeginTick;
+  u64 WorkEndTick;
+  f64 MicrosElapsed;
+  f64 TotalMicrosElapsed;
+  f64 AvgMicrosElapsed;
+  u64 CallCount;
+  str8 FunctionName;
+};
 typedef struct time_measure time_measure;
 struct time_measure
 {
-  f64 MSDelta;
-  f64 MSElapsed;
   u64 TickFrequency;
-  u64 WorkStartTick;
-  u64 WorkEndTick;
-  u64 WorkTickDelta;
-  f64 MicrosElapsedWorking;
-  f64 TargetMicrosPerFrame;
-  f64 TicksToMicros;
+  u64 FrameCounter;
+  time_entry Entries[256];
+  time_entry *Top;
+  time_entry *OnePastLast;
 };
-time_measure OSInitTimeMeasure(void)
+void OSInitTimeMeasure(time_measure *Time)
 {
-  time_measure Result = {0};
-  Result.MSDelta   = 0.0;
-  Result.MSElapsed = 0.0;
-  Result.TickFrequency = 0;
-  Result.WorkStartTick = 0;
-  Result.WorkEndTick = 0;
-  Result.WorkTickDelta = 0;
-  Result.MicrosElapsedWorking = 0.0;
-  QueryPerformanceFrequency((LARGE_INTEGER *)&Result.TickFrequency);
-  Result.TargetMicrosPerFrame = 16666.0;
-  Result.TicksToMicros = 1000000.0/(f64)Result.TickFrequency;
+  Time->TickFrequency = 0;
+  Time->FrameCounter = 0;
+  Time->Top  = Time->Entries;
+  Time->OnePastLast = Time->Entries + ArrayCount(Time->Entries);
+  QueryPerformanceFrequency((LARGE_INTEGER *)&Time->TickFrequency);
+  return;
+}
+void OSTimePrepare(time_measure *Time, str8 FunctionName)
+{
+  Assert((Time->Top<Time->OnePastLast));
+  if(!(Time->Top<Time->OnePastLast)) return;
+  time_entry *Entry = Time->Top++;
+  time_entry NewEntry = 
+  {
+    .FunctionName = FunctionName,
+    .WorkEndTick = 0,
+    .WorkBeginTick = 0,
+    .MicrosElapsed = 0.0,
+    .TotalMicrosElapsed = 0.0,
+    .AvgMicrosElapsed = 0.0, // NOTE(MIGUEL): not supported
+  };
+  QueryPerformanceCounter((LARGE_INTEGER *)&NewEntry.WorkBeginTick);
+  *Entry = NewEntry;
+  return;
+}
+// TODO(MIGUEL): Finish this abominations!
+time_entry OSTimeCapture(time_measure *Time)
+{
+  time_entry Result = {0};
+  Assert((Time->Top - 1)>=Time->Entries);
+  if(!((Time->Top - 1)>=Time->Entries)) return Result;
+  time_entry *Entry = --Time->Top;
+  QueryPerformanceCounter((LARGE_INTEGER *)&Entry->WorkEndTick);
+#define Microseconds 1000000
+  u64 TickDelta = Entry->WorkEndTick-Entry->WorkBeginTick;
+  Entry->MicrosElapsed = TickDelta*(f64)Microseconds/Time->TickFrequency;
+  Entry->TotalMicrosElapsed += Entry->MicrosElapsed;
+  Entry->AvgMicrosElapsed    = Entry->TotalMicrosElapsed/(f64)Time->FrameCounter;
+#undef Microseconds
+  Result = *Entry;
   return Result;
 }
-f64 OSTimeMeasureElapsed(time_measure *Time)
-{
-  QueryPerformanceCounter((LARGE_INTEGER *)&Time->WorkEndTick);
-  Time->WorkTickDelta  = Time->WorkEndTick - Time->WorkStartTick;
-  Time->MicrosElapsedWorking = (f64)Time->WorkTickDelta*Time->TicksToMicros;
-  u64 IdleTickDelta = 0;
-  u64 IdleStartTick = Time->WorkEndTick;
-  u64 IdleEndTick = 0;
-  f64 MicrosElapsedIdle = 0.0;
-  while((Time->MicrosElapsedWorking+MicrosElapsedIdle)<Time->TargetMicrosPerFrame)
-  {
-    QueryPerformanceCounter((LARGE_INTEGER *)&IdleEndTick);
-    IdleTickDelta = IdleEndTick-IdleStartTick;
-    MicrosElapsedIdle = (f64)IdleTickDelta*Time->TicksToMicros;
-  }
-  f64 FrameTimeMS = (Time->MicrosElapsedWorking+MicrosElapsedIdle)/1000.0;
-  Time->MSDelta    = FrameTimeMS;
-  Time->MSElapsed += FrameTimeMS;
-  return Time->MSDelta;
-}
+time_measure TimeMeasure = {0};
+#define OSProfileStart() OSTimePrepare(&TimeMeasure, Str8(__FUNCTION__))
+#define OSProfileEnd()  \
+do { \
+time_entry __entry = OSTimeCapture(&TimeMeasure); \
+arena __lgar = {0}; ArenaLocalInit(__lgar, 1042);  \
+ConsoleLog(__lgar, "[%s]elapsed: %lfs \n", __entry.FunctionName.Data, __entry.MicrosElapsed/1000000.0); \
+} while(0)
+// NOTE(MIGUEL): this is because ConsoleLog is not defined yet
 //~ MEMORY
 fn void *OSMemoryAlloc(u64 Size)
 {
@@ -137,10 +162,29 @@ fn void OSConsoleCreate(void)
 {
   b32 Status = AllocConsole();
   Assert(Status != 0);
-  gConsole = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE,
-                                       FILE_SHARE_READ, NULL,
-                                       CONSOLE_TEXTMODE_BUFFER, NULL);
-  Status = SetConsoleActiveScreenBuffer(gConsole);
+  gConsole =
+    (u64)CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE,
+                                   FILE_SHARE_READ,
+                                   NULL,
+                                   CONSOLE_TEXTMODE_BUFFER,
+                                   NULL);
+  
+  COLORREF Colors[16] = {0x00000000, 0x00ffff00, 0x00ff00ff, 0x00ffffff, 0x00ffffff };
+  CONSOLE_SCREEN_BUFFER_INFOEX BufferDesc = {
+    .cbSize = sizeof(BufferDesc),
+    .dwSize = (COORD){100, 4000},
+    .dwCursorPosition = (COORD){0, 0},
+    .wAttributes = 0 |  1, //Each bit
+    .srWindow = (SMALL_RECT){0, 0, 60, 100},
+    .dwMaximumWindowSize = (COORD){60, 100},
+    //WORD       wPopupAttributes;
+    //BOOL       bFullscreenSupported;
+  };
+  MemoryCopy(Colors, sizeof(Colors), BufferDesc.ColorTable, sizeof(BufferDesc.ColorTable));
+  Status = SetConsoleScreenBufferInfoEx((HANDLE)gConsole, &BufferDesc);
+  //Assert(Status != 0);
+  Status = SetConsoleActiveScreenBuffer((HANDLE)gConsole);
+  Assert(Status != 0);
   return;
 }
 fn static void FatalError(const char* message)

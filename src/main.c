@@ -55,141 +55,88 @@
 #include "reactdiffuse.h"
 // TODO(MIGUEL): Push function for Sys str table
 // TODO(MIGUEL): Push function for Sys str table
-typedef enum system_kind system_kind;
-enum system_kind
+
+#include "ui.h"
+#include "ui.c"
+
+void AsyncShaderReload(system_kind Kind, void *GenericSys, d3d11_base *D11Base)
 {
-  SysKind_Null,
-  SysKind_Test,
-  SysKind_MM,
-  SysKind_Cca,
-  SysKind_Boids,
-  SysKind_Physarum,
-  SysKind_ReactDiffuse,
-  SysKind_Particles,
-  SysKind_Count,
-};
-const char *SysStrTable[] =
-{ "Null", "Test", "MM", "Cca", "Boids", "Physarum", "React Diffuse", "Particles", };
-typedef struct ui_state ui_state;
-struct ui_state 
-{
-  v4f  ClearColor;
-  bool ClearColorToggle;
-  bool TexToggle;
-  f32  Slider;
-  cca_ui CcaReq;
-  boids_ui BoidsReq;
-  physarum_ui PhysarumReq;
-  reactdiffuse_ui ReactDiffuseReq;
-  system_kind SysKind;
-};
-fn void UIBegin(void)
-{
-  ImGui_ImplWin32_NewFrame();
-  ImGui_ImplDX11_NewFrame();
-  igNewFrame();
-  return;
-};
-fn void UIEnd(ImGuiIO *Io)
-{
-  igRender();
-  ImGui_ImplDX11_RenderDrawData(igGetDrawData());
-  igEndFrame(); 
-  if (Io->ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+  switch(Kind)
   {
-    igUpdatePlatformWindows();
-    igRenderPlatformWindowsDefault(NULL, NULL);
-  }
-}
-fn void UIReactDiffuseSection(ui_state *State)
-{
-  reactdiffuse_ui *Req = &State->ReactDiffuseReq;
-  igSliderInt("Resolution", (s32 *)&Req->TexRes,REACTDIFFUSE_MIN_TEX_RES, REACTDIFFUSE_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
-  igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-  igCheckbox("Auto Step", (bool *)&Req->AutoStep);
-  Req->DoStep  = false;
-  Req->DoReset = false;
-  if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-  if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
+    case SysKind_MM:
+    {
+      //do nothing.
+    } break;
+    case SysKind_Test:
+    {
+      //do nothing...
+    } break;
+    case SysKind_Cca:
+    {
+      cca *Cca = (cca *)GenericSys;
+      D3D11ShaderHotReload(D11Base, &Cca->Reset);
+      D3D11ShaderHotReload(D11Base, &Cca->Step);
+      D3D11ShaderHotReload(D11Base, &Cca->Vertex);
+      D3D11ShaderHotReload(D11Base, &Cca->Pixel);
+    } break;
+    case SysKind_Boids:
+    {
+      boids *Boids = (boids *)GenericSys;
+      //D3D11LoadShaderFileAndMakePush();
+      D3D11ShaderHotReload(D11Base, &Boids->AgentsReset);
+      D3D11ShaderHotReload(D11Base, &Boids->AgentsMove);
+      D3D11ShaderHotReload(D11Base, &Boids->AgentsTrails);
+      //D3D11LoadShaderFileAndMakePop();
+      //D3D11LoadShaderFileAndMakePush();
+      D3D11ShaderHotReload(D11Base, &Boids->AgentsDebug);
+      D3D11ShaderHotReload(D11Base, &Boids->TexReset);
+      D3D11ShaderHotReload(D11Base, &Boids->TexDiffuse);
+      D3D11ShaderHotReload(D11Base, &Boids->Render);
+      D3D11ShaderHotReload(D11Base, &Boids->Vertex);
+      D3D11ShaderHotReload(D11Base, &Boids->Pixel);
+    } break;
+    case SysKind_Physarum:
+    {
+      physarum *Physarum = (physarum *)GenericSys;
+      D3D11ShaderHotReload(D11Base, &Physarum->AgentsReset);
+      D3D11ShaderHotReload(D11Base, &Physarum->AgentsMove);
+      D3D11ShaderHotReload(D11Base, &Physarum->AgentsTrails);
+      D3D11ShaderHotReload(D11Base, &Physarum->AgentsDebug);
+      D3D11ShaderHotReload(D11Base, &Physarum->TexReset);
+      D3D11ShaderHotReload(D11Base, &Physarum->TexDiffuse);
+      D3D11ShaderHotReload(D11Base, &Physarum->Render);
+      D3D11ShaderHotReload(D11Base, &Physarum->Vertex);
+      D3D11ShaderHotReload(D11Base, &Physarum->Pixel);
+    } break;
+    case SysKind_ReactDiffuse:
+    {
+      reactdiffuse *ReactDiffuse = (reactdiffuse *)GenericSys;
+#if 1
+      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Reset);
+      D3D11ShaderHotReload(D11Base, &ReactDiffuse->ReactDiffuse);
+      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Render);
+      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Vertex);
+      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Pixel);
+#else
+      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Reset);
+      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->ReactDiffuse);
+      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Render);
+      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Vertex);
+      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Pixel);
+#endif
+    } break;
+    case SysKind_Particles:
+    {
+      //do nothing...
+    } break;
+    default:
+    {
+      
+    }break;
+  };
   return;
 }
-fn void UICcaSection(ui_state *State)
-{
-  cca_ui *Req = &State->CcaReq;
-  Req->DoStep  = false;
-  Req->DoReset = false;
-  igSliderInt("Resolution", (s32 *)&Req->Res, CCA_MIN_TEX_RES, CCA_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
-  igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-  igSliderInt("MaxState", (s32 *)&Req->MaxStates, 1, 20, NULL, 0);
-  igSliderInt("Threashold", (s32 *)&Req->Threashold, 1, Req->MaxStates, NULL, 0);
-  igSliderInt("Search Range", (s32 *)&Req->Range, 1, 5, NULL, 0);
-  igSliderInt("OverCount", (s32 *)&Req->OverCount, 1, (2*Req->Range+1)*(2*Req->Range+1), NULL, 0);
-  igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
-  if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-  if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  return;
-}
-fn void UIBoidsSection(ui_state *State)
-{
-  boids_ui *Req = &State->BoidsReq;
-  Req->DoStep  = false;
-  Req->DoReset = false;
-  igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
-  igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-  igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, 10000, NULL, 0);
-  igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 100, NULL, 0);
-  igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, -1.0, 1.0, NULL, 0);
-  igCheckbox("Alignment", (bool *)&Req->ApplyAlignment);      // Edit bools storing our window open/close state
-  igCheckbox("Cohesion", (bool *)&Req->ApplyCohesion);      // Edit bools storing our window open/close state
-  igCheckbox("Seperation", (bool *)&Req->ApplySeperation);      // Edit bools storing our window open/close state
-  igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
-  if(igButton("Step", *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-  if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  return;
-}
-fn void UIPhysarumSection(ui_state *State)
-{
-  physarum_ui *Req = &State->PhysarumReq;
-  Req->DoStep  = false;
-  Req->DoReset = false;
-  igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
-  igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-  igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, 10000, NULL, 0);
-  igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 5, NULL, 0);
-  igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, 1, Pi32*2.0, NULL, 0);
-  igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
-  if(igButton("Step", *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-  if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  return;
-}
-fn void UIControlCluster(ui_state *State)
-{
-  f32 Framerate = igGetIO()->Framerate;
-  ImGuiViewport* main_viewport = igGetMainViewport();
-  igSetNextWindowPos(*ImVec2_ImVec2_Float(0, 0), 0, *ImVec2_ImVec2_Float(0.0,0.0));
-  igBegin("Hello, world!", NULL, 0);                          // Create a window called "Hello, world!" and append into it.
-  igText("Application average %.3f ms/frame (%.1f FPS)", 1000.0f/Framerate, Framerate);
-  igCheckbox("Toggle Background Color", &State->ClearColorToggle);      // Edit bools storing our window open/close state
-  igCheckbox("Toggle Tex", &State->TexToggle);      // Edit bools storing our window open/close state
-  igColorEdit3("Clear Color", State->ClearColor.e, 0); // Edit 3 floats representing a color
-  igSliderFloat("Slider", &State->Slider, 0.0f, 1.0f, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
-  igSliderInt(SysStrTable[State->SysKind], (s32 *)&State->SysKind, 0, SysKind_Count, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
-  //arena Arena; ArenaLocalInit(Arena, 256);
-  switch(State->SysKind)
-  {
-    case SysKind_Cca: UICcaSection(State); break;
-    case SysKind_Boids:UIBoidsSection(State); break;
-    case SysKind_Physarum:UIPhysarumSection(State); break;
-    case SysKind_ReactDiffuse:UIReactDiffuseSection(State); break;
-    default: ConsoleLog("No UI avilable for this sys!\n");
-  }
-  igEnd();
-  return;
-}
+
 int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int ArgCount)
 {
   OSConsoleCreate();
@@ -197,7 +144,7 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   v2s WindowDim = V2s(900, 1080);
   HWND Window = OSWindowCreate(Instance, WindowDim);
   Assert(Window && "Failed to create window");
-  
+  OSInitTimeMeasure(&TimeMeasure);
   d3d11_base    D11Base = D3D11InitBase(Window);
   ImGuiContext* Ctx = igCreateContext(NULL);
   ImGuiIO *Io = igGetIO();
@@ -212,49 +159,31 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   LARGE_INTEGER freq, c1;
   QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&c1);
+#if 0
+  particlesystem ParticleSystem = CreateParticleSystem(D11Base.Device, 20, (f32)WindowDim.x, (f32)WindowDim.y);
+  mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
+  testrend       TestRenderer   = CreateTestRenderer(D11Base.Device, D11Base.Context);
+  cca            Cca           = CcaInit(&D11Base);
+  boids          Boids        = BoidsInit(&D11Base, UIState.BoidsReq);
+  physarum       Physarum       = PhysarumInit(&D11Base, UIState.PhysarumReq);
+  reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
+#else
+  particlesystem ParticleSystem;
+  mm_render      MMRender     ;
+  testrend       TestRenderer ;
+  cca            Cca           ;
+  boids          Boids      ;
+  physarum       Physarum;
+  reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
+#endif
   //IMGUI state
   ui_state UIState = {
     .SysKind = SysKind_ReactDiffuse,
-    .CcaReq.StepMod = 1,
-    .CcaReq.Res = CCA_MAX_TEX_RES,
-    .CcaReq.AutoStep = 1,
-    .CcaReq.Threashold = 4,
-    .CcaReq.MaxStates = 10,
-    .CcaReq.Range = 1,
-    .CcaReq.OverCount = 4,
-    
-    .BoidsReq.StepMod = 1,
-    .BoidsReq.Res = BOIDS_MAX_TEX_RES/2,
-    .BoidsReq.AutoStep = 1,
-    .BoidsReq.ApplyAlignment = 1,
-    .BoidsReq.ApplySeperation = 1,
-    .BoidsReq.ApplyCohesion = 1,
-    .BoidsReq.AgentCount = 512,
-    .BoidsReq.SearchRange = 4,
-    .BoidsReq.FieldOfView = 0.5,
-    
-    .PhysarumReq.StepMod = 1,
-    .PhysarumReq.Res = BOIDS_MAX_TEX_RES/2,
-    .PhysarumReq.AutoStep = 1,
-    .PhysarumReq.AgentCount = 512,
-    .PhysarumReq.SearchRange = 4,
-    .PhysarumReq.FieldOfView = 0.5,
-    
-    .ReactDiffuseReq.TexRes = REACTDIFFUSE_MAX_TEX_RES,
-    .ReactDiffuseReq.StepsPerFrame = 1,
-    .ReactDiffuseReq.StepMod = 1,
-    .ReactDiffuseReq.AutoStep = true,
-    .ReactDiffuseReq.DoStep = false,
-    .ReactDiffuseReq.DoReset = false,
+    .CcaReq = Cca.UIState,
+    .BoidsReq = Boids.UIState,
+    .PhysarumReq = Physarum.UIState,
+    .ReactDiffuseReq = ReactDiffuse.UIState,
   };
-  time_measure   TimeData       = OSInitTimeMeasure();
-  particlesystem ParticleSystem;// = CreateParticleSystem(D11Base.Device, 20, (f32)WindowDim.x, (f32)WindowDim.y);
-  mm_render      MMRender     ;//  = CreateMMRender      (D11Base.Device, D11Base.Context);
-  testrend       TestRenderer ;//  = CreateTestRenderer(D11Base.Device, D11Base.Context);
-  cca            Cca           ;// = CcaInit(&D11Base);
-  boids          Boids      ;//    = BoidsInit(&D11Base, UIState.BoidsReq);
-  physarum       Physarum;//       = PhysarumInit(&D11Base, UIState.PhysarumReq);
-  reactdiffuse   ReactDiffuse   = ReactDiffuseInit(&D11Base, UIState.ReactDiffuseReq);
   ParticleSystemLoadShaders(&ParticleSystem, D11Base.Device);
   u64 FrameCount = 0;
   b32 Running = 1;
@@ -266,7 +195,6 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
     ParticleSystem.ConstData.transforms.ProjMatrix = M4fOrtho(0.0f, (f32)WindowDim.x,
                                                               0.0f, (f32)WindowDim.y,
                                                               0.0f, 100.0f);
-    ParticleSystem.ConstData.sim_params.TimeFactors = V4f((f32)TimeData.MSDelta, 0.0f, 0.0f, 0.0f);
     D3D11UpdateWindowSize(&D11Base, WindowDim);
     // can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
     if (D11Base.RTView)
@@ -301,45 +229,22 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
         } break;
         case SysKind_Cca:
         {
-          D3D11ShaderHotReload(&D11Base, &Cca.Reset);
-          D3D11ShaderHotReload(&D11Base, &Cca.Step);
-          D3D11ShaderHotReload(&D11Base, &Cca.Vertex);
-          D3D11ShaderHotReload(&D11Base, &Cca.Pixel);
+          AsyncShaderReload(UIState.SysKind, &Cca, &D11Base);
           CcaDraw(&Cca, &D11Base, UIState.CcaReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Boids:
         {
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsReset);
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsMove);
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsTrails);
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsDebug);
-          D3D11ShaderHotReload(&D11Base, &Boids.TexReset);
-          D3D11ShaderHotReload(&D11Base, &Boids.TexDiffuse);
-          D3D11ShaderHotReload(&D11Base, &Boids.Render);
-          D3D11ShaderHotReload(&D11Base, &Boids.Vertex);
-          D3D11ShaderHotReload(&D11Base, &Boids.Pixel);
+          AsyncShaderReload(UIState.SysKind, &Boids, &D11Base);
           BoidsDraw(&Boids, &D11Base, UIState.BoidsReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Physarum:
         {
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsReset);
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsMove);
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsTrails);
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsDebug);
-          D3D11ShaderHotReload(&D11Base, &Physarum.TexReset);
-          D3D11ShaderHotReload(&D11Base, &Physarum.TexDiffuse);
-          D3D11ShaderHotReload(&D11Base, &Physarum.Render);
-          D3D11ShaderHotReload(&D11Base, &Physarum.Vertex);
-          D3D11ShaderHotReload(&D11Base, &Physarum.Pixel);
+          AsyncShaderReload(UIState.SysKind, &Physarum, &D11Base);
           PhysarumDraw(&Physarum, &D11Base, UIState.PhysarumReq, FrameCount, WindowDimu);
         } break;
         case SysKind_ReactDiffuse:
         {
-          D3D11ShaderHotReload(&D11Base, &ReactDiffuse.Reset);
-          D3D11ShaderHotReload(&D11Base, &ReactDiffuse.ReactDiffuse);
-          D3D11ShaderHotReload(&D11Base, &ReactDiffuse.Render);
-          D3D11ShaderHotReload(&D11Base, &ReactDiffuse.Vertex);
-          D3D11ShaderHotReload(&D11Base, &ReactDiffuse.Pixel);
+          AsyncShaderReload(UIState.SysKind, &ReactDiffuse, &D11Base);
           ReactDiffuseDraw(&ReactDiffuse, &D11Base, UIState.ReactDiffuseReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Particles:
@@ -370,7 +275,6 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
     {
       FatalError("Failed to present swap chain! Device lost?");
     }
-    OSTimeMeasureElapsed(&TimeData);
     FrameCount++;
   }
 }

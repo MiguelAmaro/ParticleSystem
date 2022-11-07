@@ -22,7 +22,7 @@ RWTexture2D<float4>TexRender : register( u1 );
 //~ FUNCTIONS
 float2 rand22(float2 p)
 {
-  float3 a = frac(p.xyx * float3(123.34, 234.34, 345.65));
+  float3 a = frac(p.xyx * float3(123.34, 234.34, 345.6));
   a += dot(a, a + 34.45);
   return frac(float2(a.x * a.y, a.y * a.z));
 }
@@ -137,8 +137,8 @@ void KernelChemReactDiffuse(uint3 id : SV_DispatchThreadID)
   float dt = 1.0;
   float DiffRateA = 1.0;
   float DiffRateB = 0.5;
-  float FeedRate = 0.01935;
-  float KillRate = 0.05078;
+  float FeedRate = 0.01934;
+  float KillRate = 0.050781;
   //TEXTURE
   float2 Result;
   float a = TexRead[id.xy].r;
@@ -160,7 +160,7 @@ void KernelRender(uint3 id : SV_DispatchThreadID)
   float4 Result = float4(TexRead[id.xy].r, TexRead[id.xy].g*0.3, 1.0, 1.0);
   //lerp(a, b, t)
   hsb.x = lerp(0.45, hsb.z, Result.g);
-  hsb.y = lerp(20.0, 30.8*Result.r, 2.2*hsb.z);
+  hsb.y = lerp(20.0, 30.8*Result.r, 2.21*hsb.z);
   
   TexRender[id.xy] = normalize(hsb2rgb(hsb));
   //TexRender[id.xy] = Result;
@@ -213,7 +213,7 @@ hit HitZero()
 float3 GetTexel(float3 p, int id)
 {
   float3 q = normalize(p);
-  float  s  = 0.2*sin(UStepCount*0.002);
+  float  s  = 0.2*sin(UStepCount*0.0021);
   float2 uv = float2(atan2(q.x, q.z), asin(q.y));
   
   float3 tex = 1.0;
@@ -322,10 +322,10 @@ float3 Render(ray Ray, float3 rdx, float3 rdy, float3 FallbackColor)
   {
     float3 Norm = Normal(Hit.p);
     float3 lighting = 0.0;
-    float3 matte = 0.0;
+    float3 matte = 0.0102;
 #define LIGHTING 0
 #if LIGHTING == 0
-    matte = float3(0.5,0.5,0.0)*0.0+GetTexel(Hit.p, TexelKind_Color).rgb;
+    matte = float3(0.5242,0.0,0.0)*0.0+GetTexel(Hit.p, TexelKind_Color).rgb;
     lighting = PhongLighting(Hit, Norm);
 #elif LIGHTING==1
     //matte = float3(0.2,0.14,0.1);
@@ -344,12 +344,12 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   
   //Color.xy = TexState.Sample(SamTexState, 1.0*Input.UV.xy).xy;
   float OrbitRad = 1.8;
-  float Vignetting = smoothstep(0.3,0.0, length(st)-0.85/OrbitRad)*0.8+0.2;
+  float Vignetting = smoothstep(0.32,0.0, length(st)-0.85/OrbitRad)*0.8+0.2;
   float3 BackgroundColor = 0.0;
   BackgroundColor = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
   BackgroundColor *= Vignetting*lerp(float3(.4, 0.8, 0.85), float3(1.0, 0.9, 0.85), uv.y*0.0+1.);
   
-  float3 Sun = float3(1.4, 1.3, 1.2);
+  float3 Sun = float3(1.212, 1.3, 1.2);
   
   
   float3 Target = float3(0.0, 0.0, 0.0);

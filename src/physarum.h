@@ -76,13 +76,28 @@ struct physarum
   d3d11_shader Vertex;
   d3d11_shader Pixel;
   arena Arena; //only textures
+  physarum_ui UIState;
 };
+physarum_ui PhysarumUIStateInit(void)
+{
+  physarum_ui Result =
+  {
+    .StepMod = 1,
+    .Res = BOIDS_MAX_TEX_RES/2,
+    .AutoStep = 1,
+    .AgentCount = 512,
+    .SearchRange = 4,
+    .FieldOfView = 0.5,
+  };
+  return Result;
+}
 physarum PhysarumInit(d3d11_base *Base, physarum_ui UIReq)
 {
   D3D11BaseDestructure(Base);
   physarum Result = {0};
   u64 MemSize = Gigabytes(2);
   Result.Arena = ArenaInit(NULL, MemSize, OSMemoryAlloc(MemSize));
+  Result.UIState = PhysarumUIStateInit();
   Result.TexRes = V2s(UIReq.Res, UIReq.Res);
   struct vert { v3f Pos; v3f TexCoord; }; // NOTE(MIGUEL): update changes in draw.
   struct vert Data[6] =

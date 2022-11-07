@@ -72,7 +72,25 @@ struct boids
   d3d11_shader Vertex;
   d3d11_shader Pixel;
   arena Arena; //only textures
+  boids_ui UIState;
 };
+
+boids_ui BoidsUIStateInit(void)
+{
+  boids_ui Result =
+  {
+    .StepMod = 1,
+    .Res = BOIDS_MAX_TEX_RES/2,
+    .AutoStep = 1,
+    .ApplyAlignment = 1,
+    .ApplySeperation = 1,
+    .ApplyCohesion = 1,
+    .AgentCount = 512,
+    .SearchRange = 4,
+    .FieldOfView = 0.5,
+  };
+  return Result;
+}
 boids BoidsInit(d3d11_base *Base, boids_ui UIReq)
 {
   D3D11BaseDestructure(Base);

@@ -61,11 +61,27 @@ struct cca
   d3d11_shader Vertex;
   d3d11_shader Pixel;
   arena Arena; //only textures
+  cca_ui UIState;
 };
+cca_ui CCaUIStateInit(void)
+{
+  cca_ui Result =
+  {
+    .StepMod = 1,
+    .Res = CCA_MAX_TEX_RES,
+    .AutoStep = 1,
+    .Threashold = 4,
+    .MaxStates = 10,
+    .Range = 1,
+    .OverCount = 4,
+  };
+  return Result;
+}
 cca CcaInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);
   cca Result = {0};
+  Result.UIState = CCaUIStateInit();
   u64 MemSize = Gigabytes(2);
   Result.Arena = ArenaInit(NULL, MemSize, OSMemoryAlloc(MemSize));
   s32 Res = CCA_MAX_TEX_RES/4;
