@@ -538,7 +538,7 @@ typedef struct async_shader_load_entry async_shader_load_entry;
 struct async_shader_load_entry
 {
   d3d11_shader Shader;
-  async_shader_status Status;
+  volatile async_shader_status Status;
 };
 typedef struct async_shader_load async_shader_load;
 struct async_shader_load
@@ -550,7 +550,10 @@ struct async_shader_load
   b32 IsInitialized;
 };
 global async_shader_load ShaderLoader = {0};
-
+u64 AtomicExchange(volatile u64 *Var, u64 SetTo)
+{
+  return InterlockedExchange64((volatile LONG64 *)Var, SetTo);
+}
 fn static DWORD WINAPI AsyncShaderLoader(void *Param)
 {
   async_shader_load *Load = (async_shader_load *)Param;
@@ -562,19 +565,20 @@ fn static DWORD WINAPI AsyncShaderLoader(void *Param)
       async_shader_load_entry *Entry = &Load->Entries[EntryId];
       if(Entry->Status == ASYNC_SHADER_STATUS_Processing)
       {
-        ID3DBlob *Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "vs_5_0", __FUNCTION__);
-        if(Blob==NULL)
-        {
-          // NOTE(MIGUEL): Interlocked exchange here
-          Entry->Status = ASYNC_SHADER_STATUS_Unable;
-          continue;
-        }
-        ID3D10Blob_Release(Blob);
         HRESULT Status;
+        ID3DBlob *Blob = NULL;
         switch(Entry->Shader.Kind)
         {
           case ShaderKind_Vertex:
           {
+            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "vs_5_0", __FUNCTION__);
+            if(Blob==NULL)
+            {
+              // NOTE(MIGUEL): Interlocked exchange here
+              AtomicExchange((u64 *)&Entry->Status, ASYNC_SHADER_STATUS_Unable);
+              ID3D10Blob_Release(Blob);
+              continue;
+            }
             Status = ID3D11Device_CreateVertexShader(Device,
                                                      ID3D10Blob_GetBufferPointer(Blob),
                                                      ID3D10Blob_GetBufferSize(Blob), NULL,
@@ -582,6 +586,14 @@ fn static DWORD WINAPI AsyncShaderLoader(void *Param)
           } break;
           case ShaderKind_Pixel:
           {
+            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "ps_5_0", __FUNCTION__);
+            if(Blob==NULL)
+            {
+              // NOTE(MIGUEL): Interlocked exchange here
+              AtomicExchange((u64 *)&Entry->Status, ASYNC_SHADER_STATUS_Unable);
+              ID3D10Blob_Release(Blob);
+              continue;
+            }
             Status = ID3D11Device_CreatePixelShader(Device,
                                                     ID3D10Blob_GetBufferPointer(Blob),
                                                     ID3D10Blob_GetBufferSize(Blob), NULL,
@@ -589,22 +601,36 @@ fn static DWORD WINAPI AsyncShaderLoader(void *Param)
           } break;
           case ShaderKind_Compute:
           {
+            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "cs_5_0", __FUNCTION__);
+            if(Blob==NULL)
+            {
+              // NOTE(MIGUEL): Interlocked exchange here
+              AtomicExchange((u64 *)&Entry->Status, ASYNC_SHADER_STATUS_Unable);
+              ID3D10Blob_Release(Blob);
+              continue;
+            }
             Status = ID3D11Device_CreateComputeShader(Device,
                                                       ID3D10Blob_GetBufferPointer(Blob),
                                                       ID3D10Blob_GetBufferSize(Blob), NULL,
                                                       &Entry->Shader.ComputeHandle);
+          } break;
+          default:
+          {
+            Assert(!"Invalide Codepath");
+            Status = 0;
           }
         }
+        if(Blob) ID3D10Blob_Release(Blob);
         
         if(SUCCEEDED(Status))
         {
           //EntyBlob assign
-          Entry->Status = ASYNC_SHADER_STATUS_Finished;
+          AtomicExchange((u64 *)&Entry->Status, ASYNC_SHADER_STATUS_Finished);
         }
         else
         {
           // NOTE(MIGUEL): Interlocked exchange here
-          Entry->Status = ASYNC_SHADER_STATUS_Unable;
+          AtomicExchange((u64 *)&Entry->Status, ASYNC_SHADER_STATUS_Unable);
           continue;
         }
         //Update status interlocked
@@ -616,6 +642,7 @@ fn static DWORD WINAPI AsyncShaderLoader(void *Param)
 }
 fn void D3D11AsyncShaderLoaderInit(async_shader_load *Loader, d3d11_base *Base)
 {
+  static u32 CallCounter = 0;
   if(!Loader->IsInitialized)
   {
     foreach(EntryId, ASYNC_SHADER_BUFFER_SIZE, u32)
@@ -629,7 +656,9 @@ fn void D3D11AsyncShaderLoaderInit(async_shader_load *Loader, d3d11_base *Base)
       DWORD ThreadId = 0;
       HANDLE ThreadHandle = CreateThread(0, 0, AsyncShaderLoader, &ShaderLoader,0, &ThreadId);
     }
+    CallCounter++;
   }
+  Assert(CallCounter<2);
   return;
 }
 fn async_shader_status D3D11ShaderAsyncLoadAndCompile(d3d11_base *Base, d3d11_shader *Shader, datetime ReqTime)
@@ -645,14 +674,14 @@ fn async_shader_status D3D11ShaderAsyncLoadAndCompile(d3d11_base *Base, d3d11_sh
     u32 EntryId = 0;
     for(; EntryId<ASYNC_SHADER_BUFFER_SIZE; EntryId++)
     {
-      Entry = Entry+EntryId;
+      Entry = ShaderLoader.Entries+EntryId;
       if(Entry->Status == ASYNC_SHADER_STATUS_NULL) break;
     }
+    //make a deep copy for file path and stuff. shader handle will be overwriten with new handle.
+    //if compile is successfull
     Shader->Id      = EntryId;
     Shader->ReqTime = ReqTime;
     Entry->Status = ASYNC_SHADER_STATUS_Processing;
-    //make a deep copy for file path and stuff. shader handle will be overwriten with new handle.
-    //if compile is successfull
     Entry->Shader = *Shader;
     return ASYNC_SHADER_STATUS_Processing;
   }
@@ -683,6 +712,8 @@ fn async_shader_status D3D11ShaderAsyncLoadAndCompile(d3d11_base *Base, d3d11_sh
       } break;
       default: { } break;
     };
+    Shader->Id = ASYNC_SHADER_LOADER_invalidKey;
+    AtomicExchange((u64 *)&Entry->Status, ASYNC_SHADER_STATUS_NULL);
     return ASYNC_SHADER_STATUS_Finished;
   }
   else if(Entry->Status == ASYNC_SHADER_STATUS_Processing)
@@ -693,7 +724,7 @@ fn async_shader_status D3D11ShaderAsyncLoadAndCompile(d3d11_base *Base, d3d11_sh
   else if(Entry->Status == ASYNC_SHADER_STATUS_Unable)
   {
     Shader->Id = ASYNC_SHADER_LOADER_invalidKey;
-    Entry->Status = ASYNC_SHADER_STATUS_NULL;
+    AtomicExchange((u64 *)&Entry->Status, ASYNC_SHADER_STATUS_NULL);
     return ASYNC_SHADER_STATUS_Unable;
   }
   else

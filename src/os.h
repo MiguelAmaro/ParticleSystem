@@ -89,7 +89,10 @@ fn u64 OSFileGetSize(HANDLE File)
   u64 Result = 0;
   b32 Status = GetFileSizeEx(File, &Whatever);
   Result = Whatever.QuadPart;
-  Assert(Status != 0);
+  if(Status == INVALID_FILE_SIZE)
+  {
+    Assert(Status != INVALID_FILE_SIZE);
+  }
   return Result;
 }
 fn str8 OSFileRead(str8 Path, arena *Arena)

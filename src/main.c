@@ -111,7 +111,7 @@ void AsyncShaderReload(system_kind Kind, void *GenericSys, d3d11_base *D11Base)
     case SysKind_ReactDiffuse:
     {
       reactdiffuse *ReactDiffuse = (reactdiffuse *)GenericSys;
-#if 1
+#if 0
       D3D11ShaderHotReload(D11Base, &ReactDiffuse->Reset);
       D3D11ShaderHotReload(D11Base, &ReactDiffuse->ReactDiffuse);
       D3D11ShaderHotReload(D11Base, &ReactDiffuse->Render);

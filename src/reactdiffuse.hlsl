@@ -136,9 +136,9 @@ void KernelChemReactDiffuse(uint3 id : SV_DispatchThreadID)
   //PARAMS
   float dt = 1.0;
   float DiffRateA = 1.0;
-  float DiffRateB = 0.5;
-  float FeedRate = 0.01934;
-  float KillRate = 0.050781;
+  float DiffRateB = 0.2;
+  float FeedRate = 0.01924;
+  float KillRate = 0.05441;
   //TEXTURE
   float2 Result;
   float a = TexRead[id.xy].r;
@@ -160,7 +160,7 @@ void KernelRender(uint3 id : SV_DispatchThreadID)
   float4 Result = float4(TexRead[id.xy].r, TexRead[id.xy].g*0.3, 1.0, 1.0);
   //lerp(a, b, t)
   hsb.x = lerp(0.45, hsb.z, Result.g);
-  hsb.y = lerp(20.0, 30.8*Result.r, 2.21*hsb.z);
+  hsb.y = lerp(20.3, 60.8*Result.r, 10.1*hsb.z); //20, 100/40, 10/3
   
   TexRender[id.xy] = normalize(hsb2rgb(hsb));
   //TexRender[id.xy] = Result;
@@ -213,7 +213,7 @@ hit HitZero()
 float3 GetTexel(float3 p, int id)
 {
   float3 q = normalize(p);
-  float  s  = 0.2*sin(UStepCount*0.0021);
+  float  s  = 0.2*sin(UStepCount*0.002);
   float2 uv = float2(atan2(q.x, q.z), asin(q.y));
   
   float3 tex = 1.0;
@@ -235,7 +235,7 @@ float SdTexturedSphere(float3 p)
 }
 float World(float3 p)
 {
-  float d = 1000.0;
+  float d = 1000.02;
   //Intersect Testing
   float dp = SdTexturedSphere(p);
   //float d0 = max(0.0, p.y+0.8);
@@ -343,8 +343,8 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   float2 st = (2.0*Input.Pos.xy-UWinRes.xy)/UWinRes.y;
   
   //Color.xy = TexState.Sample(SamTexState, 1.0*Input.UV.xy).xy;
-  float OrbitRad = 1.8;
-  float Vignetting = smoothstep(0.32,0.0, length(st)-0.85/OrbitRad)*0.8+0.2;
+  float OrbitRad = 1.822;
+  float Vignetting = smoothstep(0.32,0.0, length(st)-0.85/OrbitRad)*0.8+0.222;
   float3 BackgroundColor = 0.0;
   BackgroundColor = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
   BackgroundColor *= Vignetting*lerp(float3(.4, 0.8, 0.85), float3(1.0, 0.9, 0.85), uv.y*0.0+1.);
