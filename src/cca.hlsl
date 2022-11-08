@@ -146,9 +146,9 @@ float4 TriPlanarMap(float3 p)
   float3 y = TexRendered.Sample(SamTexRendered, s*q.xz).xyz;
   float3 z = TexRendered.Sample(SamTexRendered, s*q.xy).xyz;
   tex.xyz = x*bld.x + y*bld.y + z*bld.z;
-  float xw = TexState.Sample(SamTexState, s*q.yz);
-  float yw = TexState.Sample(SamTexState, s*q.xz);
-  float zw = TexState.Sample(SamTexState, s*q.xy);
+  float xw = TexState.Sample(SamTexState, s*q.yz).x;
+  float yw = TexState.Sample(SamTexState, s*q.xz).y;
+  float zw = TexState.Sample(SamTexState, s*q.xy).x;
   tex.w = xw*bld.x + yw*bld.y + zw*bld.z;
 #else
   tex.xyz = TexRendered.Sample(SamTexRendered, s*q.xy).xyz;

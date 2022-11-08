@@ -59,84 +59,6 @@
 #include "ui.h"
 #include "ui.c"
 
-void AsyncShaderReload(system_kind Kind, void *GenericSys, d3d11_base *D11Base)
-{
-  switch(Kind)
-  {
-    case SysKind_MM:
-    {
-      //do nothing.
-    } break;
-    case SysKind_Test:
-    {
-      //do nothing...
-    } break;
-    case SysKind_Cca:
-    {
-      cca *Cca = (cca *)GenericSys;
-      D3D11ShaderHotReload(D11Base, &Cca->Reset);
-      D3D11ShaderHotReload(D11Base, &Cca->Step);
-      D3D11ShaderHotReload(D11Base, &Cca->Vertex);
-      D3D11ShaderHotReload(D11Base, &Cca->Pixel);
-    } break;
-    case SysKind_Boids:
-    {
-      boids *Boids = (boids *)GenericSys;
-      //D3D11LoadShaderFileAndMakePush();
-      D3D11ShaderHotReload(D11Base, &Boids->AgentsReset);
-      D3D11ShaderHotReload(D11Base, &Boids->AgentsMove);
-      D3D11ShaderHotReload(D11Base, &Boids->AgentsTrails);
-      //D3D11LoadShaderFileAndMakePop();
-      //D3D11LoadShaderFileAndMakePush();
-      D3D11ShaderHotReload(D11Base, &Boids->AgentsDebug);
-      D3D11ShaderHotReload(D11Base, &Boids->TexReset);
-      D3D11ShaderHotReload(D11Base, &Boids->TexDiffuse);
-      D3D11ShaderHotReload(D11Base, &Boids->Render);
-      D3D11ShaderHotReload(D11Base, &Boids->Vertex);
-      D3D11ShaderHotReload(D11Base, &Boids->Pixel);
-    } break;
-    case SysKind_Physarum:
-    {
-      physarum *Physarum = (physarum *)GenericSys;
-      D3D11ShaderHotReload(D11Base, &Physarum->AgentsReset);
-      D3D11ShaderHotReload(D11Base, &Physarum->AgentsMove);
-      D3D11ShaderHotReload(D11Base, &Physarum->AgentsTrails);
-      D3D11ShaderHotReload(D11Base, &Physarum->AgentsDebug);
-      D3D11ShaderHotReload(D11Base, &Physarum->TexReset);
-      D3D11ShaderHotReload(D11Base, &Physarum->TexDiffuse);
-      D3D11ShaderHotReload(D11Base, &Physarum->Render);
-      D3D11ShaderHotReload(D11Base, &Physarum->Vertex);
-      D3D11ShaderHotReload(D11Base, &Physarum->Pixel);
-    } break;
-    case SysKind_ReactDiffuse:
-    {
-      reactdiffuse *ReactDiffuse = (reactdiffuse *)GenericSys;
-#if 0
-      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Reset);
-      D3D11ShaderHotReload(D11Base, &ReactDiffuse->ReactDiffuse);
-      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Render);
-      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Vertex);
-      D3D11ShaderHotReload(D11Base, &ReactDiffuse->Pixel);
-#else
-      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Reset);
-      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->ReactDiffuse);
-      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Render);
-      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Vertex);
-      D3D11ShaderAsyncHotReload(D11Base, &ReactDiffuse->Pixel);
-#endif
-    } break;
-    case SysKind_Particles:
-    {
-      //do nothing...
-    } break;
-    default:
-    {
-      
-    }break;
-  };
-  return;
-}
-
 int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int ArgCount)
 {
   OSConsoleCreate();
@@ -159,13 +81,13 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   LARGE_INTEGER freq, c1;
   QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&c1);
-#if 0
+#if 1
   particlesystem ParticleSystem = CreateParticleSystem(D11Base.Device, 20, (f32)WindowDim.x, (f32)WindowDim.y);
   mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
   testrend       TestRenderer   = CreateTestRenderer(D11Base.Device, D11Base.Context);
   cca            Cca           = CcaInit(&D11Base);
-  boids          Boids        = BoidsInit(&D11Base, UIState.BoidsReq);
-  physarum       Physarum       = PhysarumInit(&D11Base, UIState.PhysarumReq);
+  boids          Boids        = BoidsInit(&D11Base);
+  physarum       Physarum       = PhysarumInit(&D11Base);
   reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
 #else
   particlesystem ParticleSystem;
@@ -229,22 +151,45 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
         } break;
         case SysKind_Cca:
         {
-          AsyncShaderReload(UIState.SysKind, &Cca, &D11Base);
+          D3D11ShaderHotReload(&D11Base, &Cca.Reset);
+          D3D11ShaderHotReload(&D11Base, &Cca.Step);
+          D3D11ShaderHotReload(&D11Base, &Cca.Vertex);
+          D3D11ShaderHotReload(&D11Base, &Cca.Pixel);
           CcaDraw(&Cca, &D11Base, UIState.CcaReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Boids:
         {
-          AsyncShaderReload(UIState.SysKind, &Boids, &D11Base);
+          D3D11ShaderHotReload(&D11Base, &Boids.AgentsReset);
+          D3D11ShaderHotReload(&D11Base, &Boids.AgentsMove);
+          D3D11ShaderHotReload(&D11Base, &Boids.AgentsTrails);
+          D3D11ShaderHotReload(&D11Base, &Boids.AgentsDebug);
+          D3D11ShaderHotReload(&D11Base, &Boids.TexReset);
+          D3D11ShaderHotReload(&D11Base, &Boids.TexDiffuse);
+          D3D11ShaderHotReload(&D11Base, &Boids.Render);
+          D3D11ShaderHotReload(&D11Base, &Boids.Vertex);
+          D3D11ShaderHotReload(&D11Base, &Boids.Pixel);
           BoidsDraw(&Boids, &D11Base, UIState.BoidsReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Physarum:
         {
-          AsyncShaderReload(UIState.SysKind, &Physarum, &D11Base);
+          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsReset);
+          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsMove);
+          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsTrails);
+          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsDebug);
+          D3D11ShaderHotReload(&D11Base, &Physarum.TexReset);
+          D3D11ShaderHotReload(&D11Base, &Physarum.TexDiffuse);
+          D3D11ShaderHotReload(&D11Base, &Physarum.Render);
+          D3D11ShaderHotReload(&D11Base, &Physarum.Vertex);
+          D3D11ShaderHotReload(&D11Base, &Physarum.Pixel);
           PhysarumDraw(&Physarum, &D11Base, UIState.PhysarumReq, FrameCount, WindowDimu);
         } break;
         case SysKind_ReactDiffuse:
         {
-          AsyncShaderReload(UIState.SysKind, &ReactDiffuse, &D11Base);
+          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Reset);
+          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.ReactDiffuse);
+          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Render);
+          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Vertex);
+          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Pixel);
           ReactDiffuseDraw(&ReactDiffuse, &D11Base, UIState.ReactDiffuseReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Particles:

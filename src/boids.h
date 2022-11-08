@@ -91,13 +91,14 @@ boids_ui BoidsUIStateInit(void)
   };
   return Result;
 }
-boids BoidsInit(d3d11_base *Base, boids_ui UIReq)
+boids BoidsInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);
   boids Result = {0};
   u64 MemSize = Gigabytes(2);
   Result.Arena = ArenaInit(NULL, MemSize, OSMemoryAlloc(MemSize));
-  Result.TexRes = V2s(UIReq.Res, UIReq.Res);
+  Result.UIState = BoidsUIStateInit();
+  Result.TexRes = V2s(Result.UIState.Res, Result.UIState.Res);
   struct vert { v3f Pos; v3f TexCoord; }; // NOTE(MIGUEL): update changes in draw.
   struct vert Data[6] =
   {
@@ -118,9 +119,12 @@ boids BoidsInit(d3d11_base *Base, boids_ui UIReq)
     float  MaxForce;
   };
   arena_temp Temp = ArenaTempBegin(&Result.Arena);
-  struct agent *AgentsInitial = ArenaPushArray(Temp.Arena, UIReq.AgentCount, struct agent);
+  struct agent *AgentsInitial = ArenaPushArray(Temp.Arena, Result.UIState.AgentCount, struct agent);
   v4f *TexInitial    = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, v4f);
-  foreach(Agent, UIReq.AgentCount, u32) AgentsInitial[Agent] = (struct agent){V2f(0.0f,0.0f), V2f(0.0f,0.0f), 0.0f, 0.0f};
+  foreach(Agent, Result.UIState.AgentCount, u32) 
+  {
+    AgentsInitial[Agent] = (struct agent){V2f(0.0f,0.0f), V2f(0.0f,0.0f), 0.0f, 0.0f};
+  }
   foreach(Float, Result.TexRes.x*Result.TexRes.y, s32) TexInitial[Float] = V4f(0.0, 0.0, 0.0, 0.0);
   D3D11VertexBuffer(Device, &Result.VBuffer, Data, sizeof(struct vert), 6);
   //State Views
@@ -133,8 +137,8 @@ boids BoidsInit(d3d11_base *Base, boids_ui UIReq)
   D3D11Tex2DViewUA(Device, &Result.UAViewTexDebug, &Result.TexDebug, Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
   D3D11Tex2DViewUA(Device, &Result.UAViewTexWrite, &Result.TexWrite , Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
   D3D11Tex2DStage(Device, &Result.TexSwapStage, Result.TexRes, TexInitial, sizeof(v2f), Float_RGBA); // Swap Stage
-  D3D11StructuredBuffer(Device, &Result.Agents, AgentsInitial, sizeof(struct agent), UIReq.AgentCount);
-  D3D11BufferViewUA(Device, &Result.UAViewAgents, Result.Agents, UIReq.AgentCount);
+  D3D11StructuredBuffer(Device, &Result.Agents, AgentsInitial, sizeof(struct agent), Result.UIState.AgentCount);
+  D3D11BufferViewUA(Device, &Result.UAViewAgents, Result.Agents, Result.UIState.AgentCount);
   D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(boids_consts), Usage_Dynamic, Access_Write);
   ArenaTempEnd(Temp);
   
