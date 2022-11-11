@@ -268,8 +268,8 @@ void KernelAgentsMove(uint3 id : SV_DispatchThreadID)
   float2 NewPos = ToroidalWrap(Agent.Pos+NewVel);
   Agent.Vel = NewVel;
   Agent.Pos = NewPos;
-  Agent.MaxSpeed = 2.2;
-  Agent.MaxForce = 1.2;
+  Agent.MaxSpeed = 0.2;
+  Agent.MaxForce = 0.5;
   Agents[AgentId] = Agent;
   return;
 }
