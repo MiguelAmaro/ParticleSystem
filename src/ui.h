@@ -1,9 +1,9 @@
 #ifndef UI_H
 #define UI_H
+
 typedef enum system_kind system_kind;
 enum system_kind
 {
-  SysKind_Null,
   SysKind_Test,
   SysKind_MM,
   SysKind_Cca,
@@ -14,7 +14,7 @@ enum system_kind
   SysKind_Count,
 };
 const char *SysStrTable[] =
-{ "Null", "Test", "MM", "Cca", "Boids", "Physarum", "React Diffuse", "Particles", };
+{ "Test", "MM", "Cca", "Boids", "Physarum", "React Diffuse", "Particles", };
 typedef struct ui_state ui_state;
 struct ui_state 
 {
@@ -26,6 +26,8 @@ struct ui_state
   boids_ui BoidsReq;
   physarum_ui PhysarumReq;
   reactdiffuse_ui ReactDiffuseReq;
+  instancing_ui InstancingReq;
+  tex3d_ui Tex3dReq;
   system_kind SysKind;
 };
 

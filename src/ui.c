@@ -21,7 +21,7 @@ fn void UIReactDiffuseSection(ui_state *State)
 {
   reactdiffuse_ui *Req = &State->ReactDiffuseReq;
   igSliderInt("Resolution", (s32 *)&Req->TexRes,REACTDIFFUSE_MIN_TEX_RES, REACTDIFFUSE_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
+  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
   igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
   igCheckbox("Auto Step", (bool *)&Req->AutoStep);
   Req->DoStep  = false;
@@ -36,7 +36,7 @@ fn void UICcaSection(ui_state *State)
   Req->DoStep  = false;
   Req->DoReset = false;
   igSliderInt("Resolution", (s32 *)&Req->Res, CCA_MIN_TEX_RES, CCA_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
+  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
   igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
   igSliderInt("MaxState", (s32 *)&Req->MaxStates, 1, 20, NULL, 0);
   igSliderInt("Threashold", (s32 *)&Req->Threashold, 1, Req->MaxStates, NULL, 0);
@@ -53,9 +53,9 @@ fn void UIBoidsSection(ui_state *State)
   Req->DoStep  = false;
   Req->DoReset = false;
   igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
+  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
   igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-  igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, 10000, NULL, 0);
+  igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, BOIDS_MAX_AGENTCOUNT, NULL, 0);
   igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 100, NULL, 0);
   igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, -1.0, 1.0, NULL, 0);
   igCheckbox("Alignment", (bool *)&Req->ApplyAlignment);      // Edit bools storing our window open/close state
@@ -72,7 +72,7 @@ fn void UIPhysarumSection(ui_state *State)
   Req->DoStep  = false;
   Req->DoReset = false;
   igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
-  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 0, 50, NULL, 0);
+  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
   igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
   igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, 10000, NULL, 0);
   igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 5, NULL, 0);

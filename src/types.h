@@ -8,7 +8,7 @@
 #include <float.h>
 
 #define struct16 __declspec(align(16)) struct
-#define scoped_global static
+#define local_persist static
 #define global
 #define fn 
 

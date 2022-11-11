@@ -26,6 +26,14 @@ float2 rand22(float2 p)
   a += dot(a, a + 34.45);
   return frac(float2(a.x * a.y, a.y * a.z));
 }
+float3 hash3( uint n ) 
+{
+  // integer hash copied from Hugo Elias
+	n = (n << 13U) ^ n;
+  n = n * (n * n * 15731U + 789221U) + 1376312589U;
+  uint3 k = n * uint3(n,n*16807U,n*48271U);
+  return ( k & 0x7fffffffU)/(float)0x7fffffff;
+}
 float4 hsb2rgb(float3 c)
 {
   float3 rgb = clamp(abs(((c.x * 6.0 + float3(0.0, 4.0, 2.0)) % 6.0) - 3.0) - 1.0, 0.0, 1.0);
@@ -117,7 +125,7 @@ void Test(int2 id)
 [numthreads(PIXELS_PER_THREADGROUP, PIXELS_PER_THREADGROUP, 1)]
 void KernelChemReset(uint3 id : SV_DispatchThreadID)
 {
-  if(id.x >= UTexRes.x || id.y >= UTexRes.x) return;
+  if(id.x >= UTexRes.x || id.y >= UTexRes.y) return;
   
   float2 st   = (2.0*id.xy-UTexRes.xy)/UTexRes.y;
   float2 Seed = rand22(id.xy+UFrameCount);
@@ -132,14 +140,19 @@ void KernelChemReset(uint3 id : SV_DispatchThreadID)
 [numthreads(PIXELS_PER_THREADGROUP, PIXELS_PER_THREADGROUP, 1)]
 void KernelChemReactDiffuse(uint3 id : SV_DispatchThreadID)
 {
-  if(id.x >= UTexRes.x || id.y >= UTexRes.x) return;
+  //// NOTE(MIGUEL): spatial radialy adjusted feed rate (lenght(st)).
+  
+  if(id.x >= UTexRes.x || id.y >= UTexRes.y) return;
+  float2 st   = (2.0*id.xy-UTexRes.xy)/UTexRes.y;
   //PARAMS
   float dt = 1.0;
   float DiffRateA = 1.0;
-  float DiffRateB = 0.2;
-  float FeedRate = 0.01924;
-  float KillRate = 0.05441;
-  //TEXTURE
+  float DiffRateB = 0.5;
+  //https://www.karlsims.com/rdtool.html?s=0Nwog
+  float FeedRate = 0.01200;
+  float KillRate = 0.01413;
+  //k=0.01413   f=0.00200
+  //TEXTUREj
   float2 Result;
   float a = TexRead[id.xy].r;
   float b = TexRead[id.xy].g;
@@ -152,18 +165,19 @@ void KernelChemReactDiffuse(uint3 id : SV_DispatchThreadID)
 [numthreads(PIXELS_PER_THREADGROUP, PIXELS_PER_THREADGROUP, 1)]
 void KernelRender(uint3 id : SV_DispatchThreadID)
 {
-  if(id.x >= UTexRes.x || id.y >= UTexRes.x) return;
+  if(id.x >= UTexRes.x || id.y >= UTexRes.y) return;
   float2 st = (2.0*id.xy-UTexRes.xy)/UTexRes.y;
   float2 uv = id.xy/UTexRes.xy;
   
   float3 hsb = float3(TexRead[id.xy].rg, 1.0);
-  float4 Result = float4(TexRead[id.xy].r, TexRead[id.xy].g*0.3, 1.0, 1.0);
+  float4 Result = float4(TexRead[id.xy].r, TexRead[id.xy].g, 1.0, 1.0);
   //lerp(a, b, t)
-  hsb.x = lerp(0.45, hsb.z, Result.g);
-  hsb.y = lerp(20.3, 60.8*Result.r, 10.1*hsb.z); //20, 100/40, 10/3
+  hsb.x = lerp(3.0, sin(UFrameCount*0.02), Result.g);
+  hsb.y = lerp(20.3, 55.8*Result.r, 10.1*hsb.z); //20, 100/40, 10/3
   
-  TexRender[id.xy] = normalize(hsb2rgb(hsb));
-  //TexRender[id.xy] = Result;
+  TexRender[id.xy] = hsb2rgb(normalize(hsb));
+  //float3 cl = sdBox(st, float2(0.9,0.9));//float3(smoothstep(0.0,0.01, st), 1.0);
+  //TexRender[id.xy] = float4(0.01, 0.07, 0.2, 1.0);
   return;
 }
 //~VERTEX SHADER
@@ -192,9 +206,10 @@ PS_INPUT VSMain(VS_INPUT Input, uint VertID : SV_VertexID)
 }
 
 //~PIXEL SHADER
-
+//diffuse map
 sampler           SamTexRendered : register(s0); // s0 = sampler bound to slot 0
 Texture2D<float4> TexRendered    : register(t0); // t0 = shader resource bound to slot 0
+//hight map
 sampler           SamTexState : register(s1); // s1 = sampler bound to slot 0
 Texture2D<float2> TexState    : register(t1); // t1 = shader resource bound to slot 0
 
@@ -213,8 +228,19 @@ hit HitZero()
 float3 GetTexel(float3 p, int id)
 {
   float3 q = normalize(p);
-  float  s  = 0.2*sin(UStepCount*0.002);
+  float  s  = 0.4*sin(UStepCount*0.002);
+#if 0
   float2 uv = float2(atan2(q.x, q.z), asin(q.y));
+#else
+  float2 uv = 0.0;
+  float hight = sin(PI/4);
+  float lowt = sin(PI/4)/length(float3(1.0,1.0,1.0));
+  q = abs(q);
+  //clamp(normalize(abs(q)).y, lowt, hight)
+  if(q.x>hight) uv = q.zy;
+  if(q.y>hight) uv = q.xz;
+  if(q.z>hight) uv = q.xy;
+#endif
   
   float3 tex = 1.0;
   if(id==TexelKind_Color)
@@ -235,7 +261,7 @@ float SdTexturedSphere(float3 p)
 }
 float World(float3 p)
 {
-  float d = 1000.02;
+  float d = 1000.0;
   //Intersect Testing
   float dp = SdTexturedSphere(p);
   //float d0 = max(0.0, p.y+0.8);
@@ -257,8 +283,8 @@ hit CastRay(ray r)
   float tmax = 20.0;
   float d = 0.0;
   float t = tmin;
-  [unroll]
-    for(int i=0;i<100;i++)
+  
+  for(int i=0;i<64;i++)
   {
     float precis = 0.0005*t;
     h.p  = r.d*t + r.o;
@@ -289,27 +315,78 @@ float SoftShadow(ray r, float mint, float maxt, float k)
   }
   return res;
 }
-float3 PBLighting(hit Hit, float3 Norm)
+
+float3 Fresnel(float CosTheta, float3 F0)
 {
-  //Sun*(abs(TriPlanarMap(Norm).g)+float3(0.2,0.14,0.1))*Shadow;
-  float3 lightp = float3(20.0*-cos(UStepCount*0.015), 0.3,10.0*-sin(UStepCount*0.015));
-  float  lightfalloff = bias(dot(normalize(lightp-Hit.p),Norm));
-  float3 lightdiff = float3(0.8,0.8,1.0);
-  ray LightRay;
-  LightRay.o = Hit.p;
-  LightRay.d = normalize(float3(0.8, 0.01+0.099*bias(sin(UStepCount*0.02)), 0.8));
-  float3 Shadow = 0.004+pow(SoftShadow(LightRay, 0.1, 3.0, 10.0), float3(1.0, 1.2, 1.5));
-  return 0.0;
+  float3 Result = F0 + (1.0 - F0) * pow(1.0 - CosTheta, 5.0);
+  return Result;
 }
-float3 PhongLighting(hit Hit, float3 Norm)
+float NormalDistribution(float3 Norm, float3 Half, float Roughness)
+{
+  float a2     = Roughness*Roughness*Roughness*Roughness;
+  float NdotH  = max(dot(Norm, Half), 0.0);
+  float Denom  = (NdotH*NdotH*(a2-1.0)+1.0);
+  float Result = a2/(PI*Denom*Denom);
+  return Result;
+}
+float GeometrySchlickGGX(float NdotV, float Roughness)
+{
+  float r  = (Roughness+1.0);
+  float k  = (Roughness*Roughness)/8.0;
+	float Result = NdotV/(NdotV*(1.0-Roughness)+Roughness);
+  return Result;
+}
+float Geometry(float3 Norm, float3 V, float3 L, float Roughness)
+{
+  float NdotV = max(dot(Norm, V), 0.0);
+  float NdotL = max(dot(Norm, L), 0.0);
+  float ggx1 = GeometrySchlickGGX(NdotV, Roughness);
+  float ggx2 = GeometrySchlickGGX(NdotL, Roughness);
+  return ggx1 * ggx2;
+}
+float3 PBLighting(hit Hit, ray Ray, float3 CameraPos, float3 Norm, float3 Albedo)
+{
+  //Params
+  float Roughness = 0.1;
+  float3 F0 = 0.8;
+  float3 LightPos = 5.0;
+  //Params End
+  float3 LightCol = float3(1.0, 1.0,1.0);
+  float3 LightDir = normalize(LightPos - Hit.p); //Wi //float3 Wi = hash3(i);
+  float3 ViewDir  = normalize(CameraPos - Hit.p); //Wo
+  float3 Half     = normalize(ViewDir + LightDir); 
+  float3 LightDist = length(LightPos - Hit.p);
+  float3 Atten     = 1.0/(LightDist*LightDist); //from irradiance? r^2 squared distance falloff? maybe not
+  float3 Radiance = LightCol * Atten;
+  float3 Normal = normalize(Hit.p);
+  
+  //BRDF
+  float3 D = NormalDistribution(Norm, Half, Roughness);
+  float3 G = Geometry(Norm, ViewDir, LightDir, Roughness);
+  float3 F = Fresnel(max(0.0, dot(Half, ViewDir)), F0);
+  float3 Ks = F;
+  float3 Kd = 1.0 - Ks;
+  
+  float3 SNumer = D*G*F;
+  float3 SDenom = 4.0 * max(dot(Norm, ViewDir), 0.0)*max(dot(Norm, LightDir), 0.0) + 0.0001;
+  float3 Specular = SNumer/SDenom;
+  
+  float3 NdotL = max(0.0, dot(Norm, LightDir));
+  float3 Result = (Kd * Albedo / PI + Specular) * Radiance * NdotL;
+  return Result;
+}
+float3 PhongLighting(hit Hit, float3 CameraPos, float3 Norm)
 {
   float3 af = 0.1; //ambient light factor
   float3 alc = float3(0.8, 0.74, 0.3); //ambient light color
-  float3 amb = af*alc;
+  float3 amb = af*alc; //ambiant
   float3 ld = normalize(float3(1.0, 0.2, 1.0)-Hit.p);
-  float dif = max(0.0, dot(Norm, ld));
-  
-  float3 col = (dif+amb);
+  float dif = max(0.0, dot(Norm, ld)); //diffuse
+  float sf = 0.5;
+  float3 vd = normalize(CameraPos - Hit.p); //view dir
+  float3 rd = reflect(-ld, Norm); //reflect dir
+  float spc = pow(max(dot(vd, rd), 0.0), 32);
+  float3 col = (dif+amb+spc);
   return col;
 }
 
@@ -317,21 +394,30 @@ float3 Render(ray Ray, float3 rdx, float3 rdy, float3 FallbackColor)
 {
   float3 Color = FallbackColor;
   
+  // Only one light and excluding skylight so one loop
   hit Hit = CastRay(Ray);
   if(Hit.d > -0.5)
   {
     float3 Norm = Normal(Hit.p);
     float3 lighting = 0.0;
     float3 matte = 0.0102;
-#define LIGHTING 0
+    float3 ambient = 0.0;
+    float3 ao = 2.0;
+#define LIGHTING 1
 #if LIGHTING == 0
-    matte = float3(0.5242,0.0,0.0)*0.0+GetTexel(Hit.p, TexelKind_Color).rgb;
-    lighting = PhongLighting(Hit, Norm);
-#elif LIGHTING==1
-    //matte = float3(0.2,0.14,0.1);
-    //lighting = PBLighting(Hit, Norm);
-#endif
+    float3 diffuse = GetTexel(Hit.p, TexelKind_Color).rgb;
+    matte = float3(0.5242,0.0,0.0)*0.0+diffuse;
+    lighting = PhongLighting(Hit, Ray.o, Norm);
+    //Result
     Color = matte*lighting;
+#elif LIGHTING==1
+    float3 diffuse = GetTexel(Hit.p, TexelKind_Color).rgb;
+    matte = diffuse;
+    ambient = 0.03*matte*ao;
+    lighting = ambient + PBLighting(Hit, Ray, Ray.o, Norm, matte);
+    //Result
+    Color = lighting;
+#endif
   }
   
   return Color;
@@ -343,18 +429,16 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   float2 st = (2.0*Input.Pos.xy-UWinRes.xy)/UWinRes.y;
   
   //Color.xy = TexState.Sample(SamTexState, 1.0*Input.UV.xy).xy;
-  float OrbitRad = 1.822;
+  float OrbitRad = 1.8;
   float Vignetting = smoothstep(0.32,0.0, length(st)-0.85/OrbitRad)*0.8+0.222;
   float3 BackgroundColor = 0.0;
   BackgroundColor = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
   BackgroundColor *= Vignetting*lerp(float3(.4, 0.8, 0.85), float3(1.0, 0.9, 0.85), uv.y*0.0+1.);
   
   float3 Sun = float3(1.212, 1.3, 1.2);
-  
-  
   float3 Target = float3(0.0, 0.0, 0.0);
   cam Cam; ray Ray;
-  float spd = 0.001;
+  float spd = 0.01;
   Ray.o = float3(0.01+sin(UStepCount*spd)*OrbitRad,
                  1.0,
                  0.01+cos(UStepCount*spd)*OrbitRad); 
@@ -370,7 +454,7 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
     {
       float2 o = float2(m, n)/(float)AA - 0.5;
       float2 p = (2.0*(Input.Pos.xy+o)-UWinRes.xy)/UWinRes.y; //offset version of st. so target other neigboring pixels and acculiate/blend
-      float Focal = 1.5;
+      float Focal = 2.0;
       
       float3 pix = float3(p, Focal); 
       Ray.d = normalize(pix.x*Cam.x + pix.y*Cam.y + pix.z*Cam.z);
@@ -389,6 +473,5 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   
   float3 Color = Total/AA*AA;
   
-  //Color = pow(clamp(Color, 0.0, 1.0), 0.4545);
   return float4(Color.x, Color.y, Color.z, 1.0);
 }

@@ -173,7 +173,7 @@ void CcaReset(cca *Cca, d3d11_base *Base, cca_consts Consts)
 void CcaDraw(cca *Cca, d3d11_base *Base, cca_ui UIReq, u64 FrameCount, v2u WinRes)
 {
   D3D11BaseDestructure(Base);
-  scoped_global u32 StepCount = 0;
+  local_persist u32 StepCount = 0;
   // CCA PASS
   cca_consts Consts = {
     .UWinRes = WinRes,

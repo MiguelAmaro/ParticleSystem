@@ -25,6 +25,8 @@ struct agent
   float2 Vel;
   float  MaxSpeed;
   float  MaxForce;
+  uint Left;
+  uint Right;
 };
 
 Texture2D<float4>   TexRead        : register(t0);
@@ -62,6 +64,21 @@ float noise2( in float2 p )
   float3  n = h*h*h*h*float3( dot(a,hash2(i+0.0)), dot(b,hash2(i+o)), dot(c,hash2(i+1.0)) );
   return dot( n, 70.0);
 }
+#define NUM_OCTAVES 8
+float fbm ( in float2 _uv) {
+  float v = 0.0;
+  float a = 0.8;
+  float2 shift = 10.0;
+  // Rotate to reduce axial bias
+  float2x2 rot = float2x2(cos(0.5), sin(0.5),
+                          -sin(0.5), cos(0.50));
+  for (int i = 0; i < NUM_OCTAVES; ++i) {
+    v += a * noise2(_uv).x;
+    _uv = mul(rot, _uv) * 2.0 + shift;
+    a *= 0.5;
+  }
+  return v;
+}
 float bias(float a)
 {
   return 0.5 + 0.5*a;
@@ -72,7 +89,7 @@ float2 RandomDirection(float2 p)
 }
 float2 Limit(float2 Vec, float Mag)
 {
-  return length(Vec)>Mag?Mag*normalize(Vec):Vec;
+  return (length(Vec)>Mag)?Mag*normalize(Vec):Vec;
 }
 uint2 ToroidalWrap(int2 p)
 {
@@ -88,11 +105,12 @@ float3 Pallete( in float t, in float3 a, in float3 b, in float3 c, in float3 d )
 }
 float2 SimpleTurns(uint3 id, agent Agent)
 {
+  // TODO(MIGUEL): Test with fbm
   float4 Trail  = TexRead[round(Agent.Pos + Agent.Vel*2.0)];
   float2 NewVel = (Trail.x>0)?RandomDirection(id.xx*0.01 + sin(UTime)): Agent.Vel;
   return NewVel;
 }
-void DrawAgentSearchRange(agent Agent)
+void DrawAgentSearchRange(agent Agent, uint id)
 {
   int Range = USearchRange;
   for(int x=-Range; x<=Range; x++)
@@ -108,7 +126,7 @@ void DrawAgentSearchRange(agent Agent)
         if(UStepCount%1 == 0)
         {
           uint2 Pos = ToroidalWrap(Agent.Pos + Delta);
-          TexDebug[Pos] = float4(.0, 0.3, 0.8, 0.0);
+          TexDebug[Pos] += float4(1.0, 0.3, 0.8, 0.2+0.8*(float)id/(float)UAgentCount);
           ///(float)UAgentCount
           // Draw the search area
         }
@@ -116,6 +134,12 @@ void DrawAgentSearchRange(agent Agent)
     }
   }
   return;
+}
+bool IsVisable(agent Agent, float2 Dir, float Dist)
+{
+  bool InField = (dot(Dir, normalize(Agent.Vel)) > UFieldOfView);
+  bool InRange = Dist < USearchRange;
+  return InRange & InField;
 }
 float2 Alignment(agent Agent, uint AgentId)
 {
@@ -128,7 +152,8 @@ float2 Alignment(agent Agent, uint AgentId)
     agent Neighbor = Agents[NeighborId];
     float2 Dir  = normalize(Neighbor.Pos - Agent.Pos);
     float  Dist = distance (Neighbor.Pos, Agent.Pos);   
-    if((Dist < USearchRange) && (dot(Dir, normalize(Agent.Vel)) > UFieldOfView))
+    //&& 
+    if(IsVisable(Agent, Dir, Dist))
     {
       AlignmentAvg += Neighbor.Vel; 
       NeighborCount++;
@@ -137,8 +162,7 @@ float2 Alignment(agent Agent, uint AgentId)
   if(NeighborCount>0)
   {
     AlignmentAvg /= (float)NeighborCount;
-    float2 Desired = Agent.MaxSpeed*normalize(AlignmentAvg);
-    Steer = Limit(Desired - Agent.Vel, Agent.MaxForce);
+    Steer = Limit(AlignmentAvg, Agent.MaxForce);
   }
   return Steer;
 }
@@ -153,7 +177,7 @@ float2 Cohesion(agent Agent, uint AgentId)
     agent Neighbor = Agents[NeighborId];
     float2 Dir  = normalize(Neighbor.Pos - Agent.Pos);
     float  Dist = distance (Neighbor.Pos, Agent.Pos);   
-    if((Dist < USearchRange) && (dot(Dir, normalize(Agent.Vel)) > UFieldOfView))
+    if(IsVisable(Agent, Dir, Dist))
     {
       PosAvg += Neighbor.Pos;
       NeighborCount++;
@@ -162,36 +186,29 @@ float2 Cohesion(agent Agent, uint AgentId)
   if(NeighborCount>0)
   {
     PosAvg /= (float)NeighborCount;
-    float2 Desired = Agent.MaxSpeed*normalize(PosAvg-Agent.Pos);
-    Steer = Limit(Desired - Agent.Vel, Agent.MaxForce);
+    float2 Target = PosAvg-Agent.Pos;
+    Steer = Limit(Target, Agent.MaxForce);
   }
   return Steer;
 }
 float2 Seperation(agent Agent, uint AgentId)
 {
   float2 Steer = 0.0;
-  uint   NeighborCount = 0;
-  float2 SeperAvg  = 0.0;
+  float2 AvoidDir = 0.0;
+  float SafeDist = 10.0;
   for(uint NeighborId=0; NeighborId<UAgentCount; NeighborId++)
   {
     if(NeighborId == AgentId) { continue; }
     agent Neighbor = Agents[NeighborId];
     float2 Dir  = normalize(Neighbor.Pos - Agent.Pos);
     float  Dist = distance (Neighbor.Pos, Agent.Pos);   
-    if((Dist < USearchRange) && (dot(Dir, normalize(Agent.Vel)) > UFieldOfView))
+    
+    if(Dist < SafeDist || IsVisable(Agent, Dir, Dist))
     {
-      float2 Delta = Agent.Pos-Neighbor.Pos;
-      Delta /= max(Dist, 0.001);
-      SeperAvg += Neighbor.Vel; 
-      NeighborCount++;
+      AvoidDir += Agent.Pos-Neighbor.Pos; 
     }
   }
-  if(NeighborCount>0)
-  {
-    SeperAvg /= (float)NeighborCount;
-    float2 Desired = Agent.MaxSpeed*normalize(SeperAvg);
-    Steer = Limit(Desired - Agent.Vel, Agent.MaxForce);
-  }
+  Steer = Limit(AvoidDir, Agent.MaxForce);
   return Steer;
 }
 float sdBox( in float2 p, in float2 b )
@@ -206,13 +223,23 @@ void KernelAgentsReset(uint3 id : SV_DispatchThreadID)
   uint AgentId = id.x;
   if(AgentId > UAgentCount) return;       
   agent Agent;
-  float  InitialSpeed = 5.0;
-  float  InitialForce = 5.0;
+  float  InitialSpeed = 3.0;
+  float  InitialForce = 1.2;
   float2 InitialDir   = RandomDirection(id.xx*0.1 + sin(UTime));
   Agent.Pos = rand22(id.x*0.0001 + UTime*0.001)*UTexRes;
   Agent.Vel = InitialDir*InitialSpeed;
   Agent.MaxSpeed = InitialSpeed;
   Agent.MaxForce = InitialForce;
+  //Tree Mgmt
+  //let Agent[0] be the root of the tree
+  Agent.Left = 0;
+  Agent.Right = 0;
+  if(id.x > 0) //Ignore Root
+  {
+    
+    //if()
+  }
+  //Tree Mgmt End
   Agents[AgentId] = Agent;
 }
 [numthreads(AGENTS_PER_THREADGROUP, 1, 1)]
@@ -231,16 +258,19 @@ void KernelAgentsMove(uint3 id : SV_DispatchThreadID)
   if velocity is under max speed it will be scaled it up.
   */
   float dt = 1.0;
-  float2 A = UApplyAlignment *Alignment (Agent, AgentId);
-  float2 C = UApplyCohesion  *Cohesion  (Agent, AgentId);
-  float2 S = UApplySeperation*Seperation(Agent, AgentId);
-  float2 NewAcc = A+C+S;
-  float2 NewVel = Limit(NewAcc*dt+Agent.Vel, Agent.MaxSpeed);
-  float2 NewPos = ToroidalWrap(0.5*NewAcc*dt*dt + Agent.Vel*dt + Agent.Pos);
+  DrawAgentSearchRange(Agent, id.x);
+  float2 A = Alignment (Agent, AgentId)*UApplyAlignment;
+  float2 C = Cohesion  (Agent, AgentId)*UApplyCohesion;
+  float2 S = Seperation(Agent, AgentId)*UApplySeperation;
+  float2 Wander = float2(fbm((float2)id+0.022), fbm((float2)id*UTime*0.00004));
+  float2 RawVel = (A+C+S)+normalize(lerp(Wander,Agent.Vel, 0.5))+Agent.Vel;
+  float2 NewVel = Limit(RawVel, Agent.MaxSpeed);
+  float2 NewPos = ToroidalWrap(Agent.Pos+NewVel);
   Agent.Vel = NewVel;
   Agent.Pos = NewPos;
+  Agent.MaxSpeed = 2.2;
+  Agent.MaxForce = 1.2;
   Agents[AgentId] = Agent;
-  DrawAgentSearchRange(Agent);
   return;
 }
 [numthreads(AGENTS_PER_THREADGROUP, 1, 1)]
@@ -290,7 +320,7 @@ void KernelRender(uint3 id : SV_DispatchThreadID)
   float  px = 1.0/UTexRes.y;
   float2 st = (2.0*id.xy-res.xy)/res.y;
   //SHADING
-  TexRender[id.xy] = 0.0;
+  TexRender[id.xy] = 1.0;
   float3 Sample  = TexRender[id.xy].rgb;
   float3 Sample1 = TexRead[id.xy].rgb;
   float3 Sample2 = TexDebug[id.xy].rgb;
@@ -301,7 +331,7 @@ void KernelRender(uint3 id : SV_DispatchThreadID)
   col += smoothstep(0.0, px, sdBox(st, 0.9999));
   col = pow(max(0.0,col), 0.4545); //gamma correction
   //OUTPUT
-  TexRender[id.xy] = float4(col.r, col.g, col.b, 1.0);
+  TexRender[id.xy] = 1.0-float4(col.r, col.g, col.b, 1.0);
   TexDebug [id.xy] = 0.0;
 }
 [numthreads(AGENTS_PER_THREADGROUP, 1, 1)]
@@ -328,11 +358,11 @@ struct PS_INPUT
 PS_INPUT VSMain(VS_INPUT Input, uint VertID : SV_VertexID)
 {
   PS_INPUT Output;
-  float theta = float(UTime*0.01);
+  float theta = float(UTime*0.001);
   float2x2 r = float2x2(sin(theta), -cos(theta),
                         cos(theta), sin(theta));
   Input.Pos.xy = mul(r, Input.Pos.xy);
-  Output.Pos = float4(Input.Pos, 2.0);
+  Output.Pos = float4(Input.Pos, 0.7);
   Output.UV  = Input.UV;
   return Output;
 }
@@ -348,5 +378,5 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   float2 st = (2.0*Input.Pos.xy-UWinRes.xy)/UWinRes.y;
   float Vignetting = smoothstep(0.3,0.0, length(st)-0.9);
   float4 Color = float4((Texture.Sample(Sampler, 2.0*Input.UV.xy).xyz), 1.0);
-  return Color;//*Vignetting;
+  return Color*Vignetting; //*float4(noise2(st.xy), 0.0, 0.0, 0.0);
 }

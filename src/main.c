@@ -21,7 +21,9 @@
 #include "memory.c"
 #include "string.c"
 #include "mmath.h"
+#include "atomics.h"
 #include "dx11.h"
+#include "dx11.c"
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "cimgui.h"
 #include "cimgui_impl.h"
@@ -53,6 +55,9 @@
 #include "physarum.h"
 #include "cca.h"
 #include "reactdiffuse.h"
+#include "instancing.h"
+#include "tex3d.h"
+
 // TODO(MIGUEL): Push function for Sys str table
 // TODO(MIGUEL): Push function for Sys str table
 
@@ -68,45 +73,54 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   Assert(Window && "Failed to create window");
   OSInitTimeMeasure(&TimeMeasure);
   d3d11_base    D11Base = D3D11InitBase(Window);
-  ImGuiContext* Ctx = igCreateContext(NULL);
-  ImGuiIO *Io = igGetIO();
-  Io->ConfigFlags = (ImGuiConfigFlags_NavEnableKeyboard |       // Enable Keyboard Controls
-                     ImGuiConfigFlags_DockingEnable     |       // Enable Docking
-                     ImGuiConfigFlags_ViewportsEnable   |
-                     ImGuiConfigFlags_NavEnableSetMousePos);         // Enable Multi-Viewport / Platform Windows
-  ImGui_ImplWin32_Init(Window);
-  ImGui_ImplDX11_Init(D11Base.Device, D11Base.Context);
-  igSetCurrentContext(Ctx);
-  ShowWindow(Window, SW_SHOWDEFAULT);
+  
+  ImGuiIO *Io = NULL;
+  {
+    ImGuiContext* Ctx = igCreateContext(NULL);
+    Io = igGetIO();
+    Io->ConfigFlags = (ImGuiConfigFlags_NavEnableKeyboard |       // Enable Keyboard Controls
+                       ImGuiConfigFlags_DockingEnable     |       // Enable Docking
+                       ImGuiConfigFlags_ViewportsEnable   |
+                       ImGuiConfigFlags_NavEnableSetMousePos);         // Enable Multi-Viewport / Platform Windows
+    ImGui_ImplWin32_Init(Window);
+    ImGui_ImplDX11_Init(D11Base.Device, D11Base.Context);
+    igSetCurrentContext(Ctx);
+    ShowWindow(Window, SW_SHOWDEFAULT);
+  }
+  
   LARGE_INTEGER freq, c1;
   QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&c1);
-#if 1
+  
+  boids          Boids        = BoidsInit(&D11Base);
+#if 0
   particlesystem ParticleSystem = CreateParticleSystem(D11Base.Device, 20, (f32)WindowDim.x, (f32)WindowDim.y);
   mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
   testrend       TestRenderer   = CreateTestRenderer(D11Base.Device, D11Base.Context);
   cca            Cca           = CcaInit(&D11Base);
-  boids          Boids        = BoidsInit(&D11Base);
   physarum       Physarum       = PhysarumInit(&D11Base);
   reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
 #else
   particlesystem ParticleSystem;
-  mm_render      MMRender     ;
-  testrend       TestRenderer ;
+  mm_render      MMRender      ;
+  testrend       TestRenderer  ;
   cca            Cca           ;
-  boids          Boids      ;
-  physarum       Physarum;
-  reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
+  physarum       Physarum      ;
+  reactdiffuse   ReactDiffuse;
 #endif
+  // AddSystem( "React Diffuse System"); //no more string table i just declare name here and have and store in buffer. ui can traverse array and pick whatever.
+  
   //IMGUI state
   ui_state UIState = {
-    .SysKind = SysKind_ReactDiffuse,
-    .CcaReq = Cca.UIState,
+    .SysKind = SysKind_Boids,
     .BoidsReq = Boids.UIState,
+#if 0
+    .CcaReq = Cca.UIState,
     .PhysarumReq = Physarum.UIState,
     .ReactDiffuseReq = ReactDiffuse.UIState,
+#endif
   };
-  ParticleSystemLoadShaders(&ParticleSystem, D11Base.Device);
+  //ParticleSystemLoadShaders(&ParticleSystem, D11Base.Device);
   u64 FrameCount = 0;
   b32 Running = 1;
   for (;Running;)
@@ -114,9 +128,11 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
     // process all incoming Windows messages
     if(OSProcessMessges() == 1) break; // If '1' the quit message recieved
     WindowDim = OSWindowGetSize(Window);
+    /*
     ParticleSystem.ConstData.transforms.ProjMatrix = M4fOrtho(0.0f, (f32)WindowDim.x,
                                                               0.0f, (f32)WindowDim.y,
-                                                              0.0f, 100.0f);
+                                                                0.0f, 100.0f);
+    */
     D3D11UpdateWindowSize(&D11Base, WindowDim);
     // can render only if window size is non-zero - we must have backbuffer & RenderTarget view created
     if (D11Base.RTView)
@@ -139,6 +155,19 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
       v4f Color = UIState.ClearColorToggle==true?V4f(0.1f, 0.1f, 0.12f, 1.f ):UIState.ClearColor;
       ID3D11DeviceContext_ClearRenderTargetView(D11Base.Context, D11Base.RTView, Color.e);
       ID3D11DeviceContext_ClearDepthStencilView(D11Base.Context, D11Base.DSView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.f, 0);
+      
+      /*FOOD FOR THOUGHT
+for(sysid=0;sysid<??.Syscount;sysid++ )
+{
+  if(UIState.SysKind == SysId)
+{
+for(.Syscount)
+{
+
+      D3D11ShaderAsyncHotReload(??.Syss.shaders[shaderid]);
+
+  }
+  */
       switch(UIState.SysKind)
       {
         case SysKind_MM:

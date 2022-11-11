@@ -52,8 +52,8 @@ void OSTimePrepare(time_measure *Time, str8 FunctionName)
 time_entry OSTimeCapture(time_measure *Time)
 {
   time_entry Result = {0};
-  Assert((Time->Top - 1)>=Time->Entries);
-  if(!((Time->Top - 1)>=Time->Entries)) return Result;
+  Assert(!((Time->Top - 1)<Time->Entries));
+  if((Time->Top - 1)<Time->Entries) return Result;
   time_entry *Entry = --Time->Top;
   QueryPerformanceCounter((LARGE_INTEGER *)&Entry->WorkEndTick);
 #define Microseconds 1000000
@@ -67,6 +67,7 @@ time_entry OSTimeCapture(time_measure *Time)
 }
 time_measure TimeMeasure = {0};
 #define OSProfileStart() OSTimePrepare(&TimeMeasure, Str8(__FUNCTION__))
+#define OSProfileLinesStart(name) OSTimePrepare(&TimeMeasure, Str8(name))
 #define OSProfileEnd()  \
 do { \
 time_entry __entry = OSTimeCapture(&TimeMeasure); \
@@ -165,13 +166,11 @@ fn void OSConsoleCreate(void)
 {
   b32 Status = AllocConsole();
   Assert(Status != 0);
-  gConsole =
-    (u64)CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE,
-                                   FILE_SHARE_READ,
-                                   NULL,
-                                   CONSOLE_TEXTMODE_BUFFER,
-                                   NULL);
-  
+  gConsole = CreateConsoleScreenBuffer(GENERIC_READ | GENERIC_WRITE,
+                                       FILE_SHARE_READ,
+                                       NULL,
+                                       CONSOLE_TEXTMODE_BUFFER,
+                                       NULL);
   COLORREF Colors[16] = {0x00000000, 0x00ffff00, 0x00ff00ff, 0x00ffffff, 0x00ffffff };
   CONSOLE_SCREEN_BUFFER_INFOEX BufferDesc = {
     .cbSize = sizeof(BufferDesc),

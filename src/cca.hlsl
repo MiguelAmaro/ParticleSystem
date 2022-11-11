@@ -226,7 +226,7 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
     Color = matte;
   }
   
-  Color = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
+  //Color = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
   Color = pow(max(0.0,Color), 0.4545);
   return float4(Color.x, Color.y, Color.z, 1.0);
 }

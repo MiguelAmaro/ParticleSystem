@@ -45,6 +45,10 @@ I set the buffer size/max count on creation. Then with the uav i can set the cou
 
 * Use staging buffer to debug the inderectdraw arg buffer
 
+* [unroll] compiler directive cause the shader compilation that usually took arounds ~1s to 19 seconds
+
+* TODO: there was an issue with using the sampler.samples function aas apposer to sampler.sample levels in a loop where the compilere complained and recommend using the [unroll] direcitive which crippled compiles times.
+
 # Topic Search 
 indirect args > pipeline exec methods > 
 

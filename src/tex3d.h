@@ -1,12 +1,13 @@
-#ifndef REACTDIFFUSE_H
-#define REACTDIFFUSE_H
+#ifndef TEX3D_H
+#define TEX3D_H
 
-#define REACTDIFFUSE_MIN_TEX_RES (256)
-#define REACTDIFFUSE_MAX_TEX_RES (2048)
-#define REACTDIFFUSE_AGENTS_PER_THREADGROUP 64
-#define REACTDIFFUSE_PIXELS_PER_THREADGROUP 32
-typedef struct reactdiffuse_consts reactdiffuse_consts;
-struct16 reactdiffuse_consts
+
+#define TEX3D_MIN_TEX_RES (256)
+#define TEX3D_MAX_TEX_RES (2048)
+#define TEX3D_AGENTS_PER_THREADGROUP 64
+#define TEX3D_PIXELS_PER_THREADGROUP 32
+typedef struct tex3d_consts tex3d_consts;
+struct16 tex3d_consts
 {
   v2u UWinRes;
   v2u UTexRes;
@@ -14,8 +15,8 @@ struct16 reactdiffuse_consts
   u32 UFrameCount;
   f32 UBufferInit;
 };
-typedef struct reactdiffuse_ui reactdiffuse_ui;
-struct reactdiffuse_ui
+typedef struct tex3d_ui tex3d_ui;
+struct tex3d_ui
 {
   s32 TexRes;
   s32 StepsPerFrame;
@@ -24,8 +25,8 @@ struct reactdiffuse_ui
   b32 AutoStep;
   b32 DoReset;
 };
-typedef struct reactdiffuse reactdiffuse;
-struct reactdiffuse
+typedef struct tex3d tex3d;
+struct tex3d
 {
   ID3D11InputLayout        *Layout;
   ID3D11ShaderResourceView **SelectedTex;
@@ -50,20 +51,19 @@ struct reactdiffuse
   ID3D11Buffer             *VBuffer;
   ID3D11Buffer             *Consts;
   //Shader
-  //d3d11_shader Shaders[5]; just an idea
   d3d11_shader Reset;
   d3d11_shader Render;
-  d3d11_shader ReactDiffuse;
+  d3d11_shader Tex3d;
   d3d11_shader Vertex;
   d3d11_shader Pixel;
   arena Arena; //only textures
-  reactdiffuse_ui UIState;
+  tex3d_ui UIState;
 };
-reactdiffuse_ui ReactDiffuseUIStateInit(void)
+tex3d_ui Tex3dUIStateInit(void)
 {
-  reactdiffuse_ui Result = 
+  tex3d_ui Result = 
   {
-    .TexRes = REACTDIFFUSE_MAX_TEX_RES,
+    .TexRes = TEX3D_MAX_TEX_RES,
     .StepsPerFrame = 1,
     .StepMod = 1,
     .AutoStep = true,
@@ -72,14 +72,14 @@ reactdiffuse_ui ReactDiffuseUIStateInit(void)
   };
   return Result;
 }
-reactdiffuse ReactDiffuseInit(d3d11_base *Base)
+tex3d Tex3dInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);
-  reactdiffuse Result = {0};
+  tex3d Result = {0};
   u64 MemSize = Gigabytes(2);
   Result.Arena = ArenaInit(NULL, MemSize, OSMemoryAlloc(MemSize));
   // NOTE(MIGUEL): In the following lines the tex resolution is determinded by UIState Initizaiton
-  Result.UIState = ReactDiffuseUIStateInit();
+  Result.UIState = Tex3dUIStateInit();
   Result.TexRes = V2s((u32)Result.UIState.TexRes, (u32)Result.UIState.TexRes);
   struct vert { v3f Pos; v3f TexCoord; }; // NOTE(MIGUEL): update changes in draw.
   struct vert Data[6] =
@@ -112,7 +112,7 @@ reactdiffuse ReactDiffuseInit(d3d11_base *Base)
                         &Result.SRViewTexRender, &Result.UAViewTexRender,
                         Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA);
   D3D11Tex2DStage(Device, &Result.TexSwapStage, Result.TexRes, StateInitial, sizeof(v2f), Float_RG); // Swap Stage
-  D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(reactdiffuse_consts), Usage_Dynamic, Access_Write);
+  D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(tex3d_consts), Usage_Dynamic, Access_Write);
   
   ArenaTempEnd(Temp);
   {
@@ -131,78 +131,75 @@ reactdiffuse ReactDiffuseInit(d3d11_base *Base)
     { "IAPOS"     , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct vert, Pos     ), D3D11_INPUT_PER_VERTEX_DATA, 0 },
     { "IATEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct vert, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0 },
   };
-  str8 ShaderFile = Str8("F:\\Dev\\ParticleSystem\\src\\reactdiffuse.hlsl");
-  
-  // D3D11AddShader("My Shader name that will be hashed or not", othe std info);
-  Result.Reset        = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelChemReset"), NULL, 0, Base);
-  Result.ReactDiffuse = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelChemReactDiffuse"), NULL, 0, Base);
-  Result.Render       = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelRender"), NULL, 0, Base);
-  Result.Vertex = D3D11ShaderCreate(ShaderKind_Vertex, ShaderFile, Str8("VSMain"), Desc, ArrayCount(Desc), Base);
-  Result.Pixel  = D3D11ShaderCreate(ShaderKind_Pixel, ShaderFile, Str8("PSMain"), NULL, 0, Base);
+  str8 ShaderFile = Str8("F:\\Dev\\ParticleSystem\\src\\tex3d.hlsl");
+  Result.Reset      = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelChemReset"), NULL, 0, Base);
+  Result.Tex3d = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelChemTex3d"), NULL, 0, Base);
+  Result.Render     = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelRender"), NULL, 0, Base);
+  Result.Vertex     = D3D11ShaderCreate(ShaderKind_Vertex, ShaderFile, Str8("VSMain"), Desc, ArrayCount(Desc), Base);
+  Result.Pixel      = D3D11ShaderCreate(ShaderKind_Pixel, ShaderFile, Str8("PSMain"), NULL, 0, Base);
   return Result;
 }
-
-void ReactDiffuseRender(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse_consts Consts)
+void Tex3dRender(tex3d *Tex3d, d3d11_base *Base, tex3d_consts Consts)
 {
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
-  ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->Render.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
-  ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &ReactDiffuse->Consts);
-  ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &ReactDiffuse->SRViewTexRead);
-  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &ReactDiffuse->UAViewTexRender, NULL);
+  ID3D11DeviceContext_CSSetShader(Context, Tex3d->Render.ComputeHandle, NULL, 0);
+  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Tex3d->Consts);
+  ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &Tex3d->SRViewTexRead);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &Tex3d->UAViewTexRender, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
   D3D11ClearComputeStage(Context);
   return;
 }
-void ReactDiffuseStep(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse_consts Consts)
+void Tex3dStep(tex3d *Tex3d, d3d11_base *Base, tex3d_consts Consts)
 {
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
-  ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->ReactDiffuse.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
-  ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &ReactDiffuse->Consts);
-  ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &ReactDiffuse->SRViewTexRead);             // Float
-  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &ReactDiffuse->UAViewTexWrite, NULL);      // Float
-  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &ReactDiffuse->UAViewTexRender, NULL); // Float4
+  ID3D11DeviceContext_CSSetShader(Context, Tex3d->Tex3d.ComputeHandle, NULL, 0);
+  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Tex3d->Consts);
+  ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &Tex3d->SRViewTexRead);             // Float
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Tex3d->UAViewTexWrite, NULL);      // Float
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &Tex3d->UAViewTexRender, NULL); // Float4
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
   D3D11ClearComputeStage(Context);
-  D3D11Tex2DSwap(Context, &ReactDiffuse->TexRead, &ReactDiffuse->TexWrite, ReactDiffuse->TexSwapStage);
+  D3D11Tex2DSwap(Context, &Tex3d->TexRead, &Tex3d->TexWrite, Tex3d->TexSwapStage);
   return;
 }
-void ReactDiffuseReset(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse_consts Consts)
+void Tex3dReset(tex3d *Tex3d, d3d11_base *Base, tex3d_consts Consts)
 {
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   
-  ConsoleLog("reseting\n");
+  ConsoleLog("reseting");
   Consts.UBufferInit = 1.0f;
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
-  ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->Reset.ComputeHandle, NULL, 0);
-  ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &ReactDiffuse->Consts);
-  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &ReactDiffuse->UAViewTexRead, NULL);
+  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  ID3D11DeviceContext_CSSetShader(Context, Tex3d->Reset.ComputeHandle, NULL, 0);
+  ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &Tex3d->Consts);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Tex3d->UAViewTexRead, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
   D3D11ClearComputeStage(Context);
   Consts.UBufferInit = 0.0f;
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
-  ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->Reset.ComputeHandle, NULL, 0);
-  ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &ReactDiffuse->Consts);
-  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &ReactDiffuse->UAViewTexWrite, NULL);
+  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  ID3D11DeviceContext_CSSetShader(Context, Tex3d->Reset.ComputeHandle, NULL, 0);
+  ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &Tex3d->Consts);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Tex3d->UAViewTexWrite, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
   D3D11ClearComputeStage(Context);
   
-  //D3D11Tex2DSwap(Context, &ReactDiffuse->TexRead, &ReactDiffuse->TexWrite, ReactDiffuse->TexSwapStage);
+  //D3D11Tex2DSwap(Context, &Tex3d->TexRead, &Tex3d->TexWrite, Tex3d->TexSwapStage);
   return;
 }
-void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse_ui UIReq, u64 FrameCount, v2u WinRes)
+void Tex3dDraw(tex3d *Tex3d, d3d11_base *Base, tex3d_ui UIReq, u64 FrameCount, v2u WinRes)
 {
   OSProfileStart();
   D3D11BaseDestructure(Base);
   local_persist u32 StepCount = 0;
-  // REACTDIFFUSE PASS
-  reactdiffuse_consts Consts = {
+  // TEX3D PASS
+  tex3d_consts Consts = {
     .UWinRes = WinRes,
-    .UTexRes = V2u((u32)ReactDiffuse->TexRes.x, (u32)ReactDiffuse->TexRes.y),
+    .UTexRes = V2u((u32)Tex3d->TexRes.x, (u32)Tex3d->TexRes.y),
     .UStepCount = (u32)StepCount,
     .UFrameCount = (u32)FrameCount,
   };
@@ -210,14 +207,14 @@ void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse
   {
     foreach(Step, UIReq.StepsPerFrame, s32)
     {
-      ReactDiffuseStep(ReactDiffuse, Base, Consts);
+      Tex3dStep(Tex3d, Base, Consts);
     }
-    ReactDiffuseRender(ReactDiffuse, Base, Consts);
+    Tex3dRender(Tex3d, Base, Consts);
     StepCount++;
   }
   if(UIReq.DoReset)
   {
-    ReactDiffuseReset(ReactDiffuse, Base, Consts);
+    Tex3dReset(Tex3d, Base, Consts);
     StepCount = 0;
   }
   // DRAW PASS
@@ -226,22 +223,22 @@ void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse
   struct vert { v3f Pos; v3f TexCoord; };
   UINT Stride = sizeof(struct vert);
   UINT Offset = 0;
-  ID3D11DeviceContext_IASetInputLayout(Context, ReactDiffuse->Vertex.Layout);
+  ID3D11DeviceContext_IASetInputLayout(Context, Tex3d->Vertex.Layout);
   ID3D11DeviceContext_IASetPrimitiveTopology(Context, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-  ID3D11DeviceContext_IASetVertexBuffers(Context, 0, 1, &ReactDiffuse->VBuffer, &Stride, &Offset);
+  ID3D11DeviceContext_IASetVertexBuffers(Context, 0, 1, &Tex3d->VBuffer, &Stride, &Offset);
   // Vertex Shader
-  ID3D11DeviceContext_VSSetConstantBuffers(Context, 0, 1, &ReactDiffuse->Consts);
-  ID3D11DeviceContext_VSSetShader(Context, ReactDiffuse->Vertex.VertexHandle, NULL, 0);
+  ID3D11DeviceContext_VSSetConstantBuffers(Context, 0, 1, &Tex3d->Consts);
+  ID3D11DeviceContext_VSSetShader(Context, Tex3d->Vertex.VertexHandle, NULL, 0);
   // Rasterizer Stage
   ID3D11DeviceContext_RSSetViewports(Context, 1, &Viewport);
   ID3D11DeviceContext_RSSetState(Context, RastState);
   // Pixel Shader
-  ID3D11DeviceContext_PSSetConstantBuffers(Context, 0, 1, &ReactDiffuse->Consts);
-  ID3D11DeviceContext_PSSetSamplers       (Context, 0, 1, &ReactDiffuse->SamTexRender);
-  ID3D11DeviceContext_PSSetShaderResources(Context, 0, 1, &ReactDiffuse->SRViewTexRender);
-  ID3D11DeviceContext_PSSetSamplers       (Context, 1, 1, &ReactDiffuse->SamTexWrite);
-  ID3D11DeviceContext_PSSetShaderResources(Context, 1, 1, &ReactDiffuse->SRViewTexWrite);
-  ID3D11DeviceContext_PSSetShader(Context, ReactDiffuse->Pixel.PixelHandle, NULL, 0);
+  ID3D11DeviceContext_PSSetConstantBuffers(Context, 0, 1, &Tex3d->Consts);
+  ID3D11DeviceContext_PSSetSamplers       (Context, 0, 1, &Tex3d->SamTexRender);
+  ID3D11DeviceContext_PSSetShaderResources(Context, 0, 1, &Tex3d->SRViewTexRender);
+  ID3D11DeviceContext_PSSetSamplers       (Context, 1, 1, &Tex3d->SamTexWrite);
+  ID3D11DeviceContext_PSSetShaderResources(Context, 1, 1, &Tex3d->SRViewTexWrite);
+  ID3D11DeviceContext_PSSetShader(Context, Tex3d->Pixel.PixelHandle, NULL, 0);
   // Output Merger
   ID3D11DeviceContext_OMSetBlendState(Context, BlendState, NULL, ~0U);
   ID3D11DeviceContext_OMSetDepthStencilState(Context, DepthState, 0);
@@ -252,4 +249,4 @@ void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse
   return;
 }
 
-#endif //REACTDIFFUSE_H
+#endif //TEX3D_H

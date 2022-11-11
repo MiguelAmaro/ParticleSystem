@@ -290,7 +290,7 @@ fn void PhysarumReset(physarum *Physarum, d3d11_base *Base, physarum_consts Cons
 fn void PhysarumDraw(physarum *Physarum, d3d11_base *Base, physarum_ui UIReq, u64 FrameCount, v2u WinRes)
 {
   D3D11BaseDestructure(Base);
-  scoped_global u32 StepCount = 0;
+  local_persist u32 StepCount = 0;
   // COMPUTE PASS
   //UIReq.ApplyAlignment += 1;
   physarum_consts Consts = {

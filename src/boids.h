@@ -1,6 +1,6 @@
 #ifndef BOIDS_H
 #define BOIDS_H
-
+#define BOIDS_MAX_AGENTCOUNT (1000000)
 #define BOIDS_MIN_TEX_RES (256)
 #define BOIDS_MAX_TEX_RES (2048)
 
@@ -85,7 +85,7 @@ boids_ui BoidsUIStateInit(void)
     .ApplyAlignment = 1,
     .ApplySeperation = 1,
     .ApplyCohesion = 1,
-    .AgentCount = 512,
+    .AgentCount = 20000,
     .SearchRange = 4,
     .FieldOfView = 0.5,
   };
@@ -117,9 +117,11 @@ boids BoidsInit(d3d11_base *Base)
     v2f Vel;
     float  MaxSpeed;
     float  MaxForce;
+    u32 Left;
+    u32 Rigth;
   };
   arena_temp Temp = ArenaTempBegin(&Result.Arena);
-  struct agent *AgentsInitial = ArenaPushArray(Temp.Arena, Result.UIState.AgentCount, struct agent);
+  struct agent *AgentsInitial = ArenaPushArray(Temp.Arena, BOIDS_MAX_AGENTCOUNT, struct agent);
   v4f *TexInitial    = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, v4f);
   foreach(Agent, Result.UIState.AgentCount, u32) 
   {
@@ -290,7 +292,7 @@ fn void BoidsReset(boids *Boids, d3d11_base *Base, boids_consts Consts, u32 Step
 fn void BoidsDraw(boids *Boids, d3d11_base *Base, boids_ui UIReq, u64 FrameCount, v2u WinRes)
 {
   D3D11BaseDestructure(Base);
-  scoped_global u32 StepCount = 0;
+  local_persist u32 StepCount = 0;
   // COMPUTE PASS
   boids_consts Consts = {
     .UWinRes = WinRes,
