@@ -144,7 +144,7 @@ void Tex3dRender(tex3d *Tex3d, d3d11_base *Base, tex3d_consts Consts)
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Tex3d->Render.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Tex3d->Consts);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &Tex3d->SRViewTexRead);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &Tex3d->UAViewTexRender, NULL);
@@ -157,7 +157,7 @@ void Tex3dStep(tex3d *Tex3d, d3d11_base *Base, tex3d_consts Consts)
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Tex3d->Tex3d.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Tex3d->Consts);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &Tex3d->SRViewTexRead);             // Float
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Tex3d->UAViewTexWrite, NULL);      // Float
@@ -174,14 +174,14 @@ void Tex3dReset(tex3d *Tex3d, d3d11_base *Base, tex3d_consts Consts)
   
   ConsoleLog("reseting");
   Consts.UBufferInit = 1.0f;
-  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1);
   ID3D11DeviceContext_CSSetShader(Context, Tex3d->Reset.ComputeHandle, NULL, 0);
   ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &Tex3d->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Tex3d->UAViewTexRead, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
   D3D11ClearComputeStage(Context);
   Consts.UBufferInit = 0.0f;
-  D3D11GPUMemoryOp(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Tex3d->Consts, &Consts, sizeof(tex3d_consts), 1);
   ID3D11DeviceContext_CSSetShader(Context, Tex3d->Reset.ComputeHandle, NULL, 0);
   ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &Tex3d->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Tex3d->UAViewTexWrite, NULL);

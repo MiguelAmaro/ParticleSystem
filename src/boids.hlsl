@@ -17,7 +17,6 @@ cbuffer cbuffer0 : register(b0)
   float UApplyCohesion;
   float UApplySeperation;
   uint  UTime; //UFrameCount;
-  uint4 _padding;
 };
 struct agent
 {
@@ -25,8 +24,6 @@ struct agent
   float2 Vel;
   float  MaxSpeed;
   float  MaxForce;
-  uint Left;
-  uint Right;
 };
 
 Texture2D<float4>   TexRead        : register(t0);
@@ -34,6 +31,7 @@ sampler             TexReadSampler : register(s0); // s0 = sampler bound to slot
 RWTexture2D<float4> TexWrite : register(u0); // t0 = shader resource bound to slot 0
 RWTexture2D<float4> TexDebug : register(u1);
 RWTexture2D<float4> TexRender: register(u2);
+//RWTexture2D<float>  TexLastPos: register(u3);
 RWStructuredBuffer<agent> Agents : register(u3);
 
 //~ FUNCTIONS
@@ -103,11 +101,14 @@ float3 Pallete( in float t, in float3 a, in float3 b, in float3 c, in float3 d )
 {
   return a + b*cos( 6.28318*(c*t+d) );
 }
-float2 SimpleTurns(uint3 id, agent Agent)
+float2 SimpleTurns(agent Agent, uint3 id)
 {
   // TODO(MIGUEL): Test with fbm
-  float4 Trail  = TexRead[round(Agent.Pos + Agent.Vel*2.0)];
-  float2 NewVel = (Trail.x>0)?RandomDirection(id.xx*0.01 + sin(UTime)): Agent.Vel;
+  // This probably really expensive
+  float SeedX = fbm((float2)((float)id+0.022)*UTime+.0232)*sin(UTime*0.002302);
+  float SeedY = fbm((float2)id*UTime*0.02+0.02324)*cos(UTime*0.00923);
+  float2 RandDir = normalize(float2(SeedX, SeedY));
+  float2 NewVel  = normalize(lerp(RandDir, Agent.Vel, 0.5))+Agent.Vel;
   return NewVel;
 }
 void DrawAgentSearchRange(agent Agent, uint id)
@@ -126,7 +127,11 @@ void DrawAgentSearchRange(agent Agent, uint id)
         if(UStepCount%1 == 0)
         {
           uint2 Pos = ToroidalWrap(Agent.Pos + Delta);
-          TexDebug[Pos] += float4(1.0, 0.3, 0.8, 0.2+0.8*(float)id/(float)UAgentCount);
+          float alpha = 0.2+0.8*(float)id/(float)UAgentCount;
+          float3 green = float3(1.0, 0.3, 0.8);
+          float3 blue = float3(0.5, 0.0, 0.0);
+          float3 pink = float3(0.003, 0.05, 0.03);
+          TexDebug[Pos] += float4(pink, alpha);
           ///(float)UAgentCount
           // Draw the search area
         }
@@ -170,6 +175,7 @@ float2 Cohesion(agent Agent, uint AgentId)
 {
   float2 Steer  = 0.0;
   float2 PosAvg = 0.0;
+  float CohesionFactor = 0.3;
   uint   NeighborCount = 0;
   for(uint NeighborId=0; NeighborId<UAgentCount; NeighborId++)
   {
@@ -187,7 +193,7 @@ float2 Cohesion(agent Agent, uint AgentId)
   {
     PosAvg /= (float)NeighborCount;
     float2 Target = PosAvg-Agent.Pos;
-    Steer = Limit(Target, Agent.MaxForce);
+    Steer = Limit(Target, Agent.MaxForce*CohesionFactor );
   }
   return Steer;
 }
@@ -195,6 +201,7 @@ float2 Seperation(agent Agent, uint AgentId)
 {
   float2 Steer = 0.0;
   float2 AvoidDir = 0.0;
+  float AvoidFactor = 1.0;
   float SafeDist = 10.0;
   for(uint NeighborId=0; NeighborId<UAgentCount; NeighborId++)
   {
@@ -208,7 +215,7 @@ float2 Seperation(agent Agent, uint AgentId)
       AvoidDir += Agent.Pos-Neighbor.Pos; 
     }
   }
-  Steer = Limit(AvoidDir, Agent.MaxForce);
+  Steer = Limit(AvoidDir, Agent.MaxForce*AvoidFactor);
   return Steer;
 }
 float sdBox( in float2 p, in float2 b )
@@ -226,20 +233,10 @@ void KernelAgentsReset(uint3 id : SV_DispatchThreadID)
   float  InitialSpeed = 3.0;
   float  InitialForce = 1.2;
   float2 InitialDir   = RandomDirection(id.xx*0.1 + sin(UTime));
-  Agent.Pos = rand22(id.x*0.0001 + UTime*0.001)*UTexRes;
+  Agent.Pos = floor(rand22(id.x*0.0001 + UTime*0.001)*10.0);//*UTexRes; // NOTE(MIGUEL): DEBUGGING KD
   Agent.Vel = InitialDir*InitialSpeed;
   Agent.MaxSpeed = InitialSpeed;
   Agent.MaxForce = InitialForce;
-  //Tree Mgmt
-  //let Agent[0] be the root of the tree
-  Agent.Left = 0;
-  Agent.Right = 0;
-  if(id.x > 0) //Ignore Root
-  {
-    
-    //if()
-  }
-  //Tree Mgmt End
   Agents[AgentId] = Agent;
 }
 [numthreads(AGENTS_PER_THREADGROUP, 1, 1)]
@@ -262,14 +259,14 @@ void KernelAgentsMove(uint3 id : SV_DispatchThreadID)
   float2 A = Alignment (Agent, AgentId)*UApplyAlignment;
   float2 C = Cohesion  (Agent, AgentId)*UApplyCohesion;
   float2 S = Seperation(Agent, AgentId)*UApplySeperation;
-  float2 Wander = float2(fbm((float2)id+0.022), fbm((float2)id*UTime*0.00004));
-  float2 RawVel = (A+C+S)+normalize(lerp(Wander,Agent.Vel, 0.5))+Agent.Vel;
+  float2 Wander = SimpleTurns(Agent, id);
+  float2 RawVel = (A+C+S)+Wander;
   float2 NewVel = Limit(RawVel, Agent.MaxSpeed);
   float2 NewPos = ToroidalWrap(Agent.Pos+NewVel);
   Agent.Vel = NewVel;
   Agent.Pos = NewPos;
-  Agent.MaxSpeed = 0.2;
-  Agent.MaxForce = 0.5;
+  Agent.MaxSpeed = 3.0;
+  Agent.MaxForce = 1.2;
   Agents[AgentId] = Agent;
   return;
 }
@@ -324,7 +321,7 @@ void KernelRender(uint3 id : SV_DispatchThreadID)
   float3 Sample  = TexRender[id.xy].rgb;
   float3 Sample1 = TexRead[id.xy].rgb;
   float3 Sample2 = TexDebug[id.xy].rgb;
-  float3 matte = Sample2;
+  float3 matte = Sample2-Sample*0.02;
   //Sample2+
   //POST
   col = matte;
@@ -332,7 +329,7 @@ void KernelRender(uint3 id : SV_DispatchThreadID)
   col = pow(max(0.0,col), 0.4545); //gamma correction
   //OUTPUT
   TexRender[id.xy] = 1.0-float4(col.r, col.g, col.b, 1.0);
-  TexDebug [id.xy] = 0.0;
+  TexDebug [id.xy] *= 0.98;
 }
 [numthreads(AGENTS_PER_THREADGROUP, 1, 1)]
 void KernelAgentsDebug(uint3 id : SV_DispatchThreadID)
@@ -340,7 +337,7 @@ void KernelAgentsDebug(uint3 id : SV_DispatchThreadID)
   uint AgentId = id.x;
   if(AgentId >= UAgentCount) return;
   agent Agent = Agents[AgentId];
-  TexRender[round(Agent.Pos)] = float4(0.3, 0.2+0.8*AgentId/UAgentCount, 0.4, 1.0);
+  TexRender[round(Agent.Pos)] = float4(0.1, 1.0/UAgentCount, 0.1, 1.0);
 }
 //~VERTEX SHADER
 struct VS_INPUT

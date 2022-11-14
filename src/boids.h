@@ -4,6 +4,14 @@
 #define BOIDS_MIN_TEX_RES (256)
 #define BOIDS_MAX_TEX_RES (2048)
 
+typedef struct boids_agent boids_agent;
+struct boids_agent
+{
+  v2f Pos;
+  v2f Vel;
+  float  MaxSpeed;
+  float  MaxForce;
+};
 typedef struct boids_consts boids_consts;
 struct16 boids_consts
 {
@@ -47,6 +55,8 @@ struct boids
   ID3D11Texture2D           *TexDebug;
   ID3D11Texture2D           *TexRender;
   ID3D11Buffer              *Agents;
+  ID3D11Buffer              *AgentsStage;
+  u32                        AgentCount;
   //VIEWS
   ID3D11ShaderResourceView  *SRViewTexRead;
   ID3D11ShaderResourceView  *SRViewTexRender; //pixel shader
@@ -95,9 +105,10 @@ boids BoidsInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);
   boids Result = {0};
-  u64 MemSize = Gigabytes(2);
+  u64 MemSize = Gigabytes(1); // NOTE(MIGUEL): Yo wtf lol. i allocate a gig on every system???
   Result.Arena = ArenaInit(NULL, MemSize, OSMemoryAlloc(MemSize));
   Result.UIState = BoidsUIStateInit();
+  Result.AgentCount = Result.UIState.AgentCount;
   Result.TexRes = V2s(Result.UIState.Res, Result.UIState.Res);
   struct vert { v3f Pos; v3f TexCoord; }; // NOTE(MIGUEL): update changes in draw.
   struct vert Data[6] =
@@ -111,21 +122,13 @@ boids BoidsInit(d3d11_base *Base)
     { { -1.0f, -1.0f, 0.0f }, {  0.0f,  0.0f, 0.0f } },
     { { -1.0f,  1.0f, 0.0f }, {  0.0f,  1.0f, 0.0f } },
   };
-  struct agent
-  {
-    v2f Pos;
-    v2f Vel;
-    float  MaxSpeed;
-    float  MaxForce;
-    u32 Left;
-    u32 Rigth;
-  };
-  arena_temp Temp = ArenaTempBegin(&Result.Arena);
-  struct agent *AgentsInitial = ArenaPushArray(Temp.Arena, BOIDS_MAX_AGENTCOUNT, struct agent);
-  v4f *TexInitial    = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, v4f);
+  
+  arena_temp Scratch = MemoryGetScratch(NULL, 0);
+  boids_agent *AgentsInitial = ArenaPushArray(Scratch.Arena, BOIDS_MAX_AGENTCOUNT, boids_agent);
+  v4f *TexInitial    = ArenaPushArray(Scratch.Arena, Result.TexRes.x*Result.TexRes.y, v4f);
   foreach(Agent, Result.UIState.AgentCount, u32) 
   {
-    AgentsInitial[Agent] = (struct agent){V2f(0.0f,0.0f), V2f(0.0f,0.0f), 0.0f, 0.0f};
+    AgentsInitial[Agent] = (boids_agent){V2f(0.0f,0.0f), V2f(0.0f,0.0f), 0.0f, 0.0f};
   }
   foreach(Float, Result.TexRes.x*Result.TexRes.y, s32) TexInitial[Float] = V4f(0.0, 0.0, 0.0, 0.0);
   D3D11VertexBuffer(Device, &Result.VBuffer, Data, sizeof(struct vert), 6);
@@ -139,10 +142,11 @@ boids BoidsInit(d3d11_base *Base)
   D3D11Tex2DViewUA(Device, &Result.UAViewTexDebug, &Result.TexDebug, Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
   D3D11Tex2DViewUA(Device, &Result.UAViewTexWrite, &Result.TexWrite , Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
   D3D11Tex2DStage(Device, &Result.TexSwapStage, Result.TexRes, TexInitial, sizeof(v2f), Float_RGBA); // Swap Stage
-  D3D11StructuredBuffer(Device, &Result.Agents, AgentsInitial, sizeof(struct agent), Result.UIState.AgentCount);
+  D3D11StructuredBuffer(Device, &Result.Agents, AgentsInitial, sizeof(boids_agent), Result.UIState.AgentCount);
   D3D11BufferViewUA(Device, &Result.UAViewAgents, Result.Agents, Result.UIState.AgentCount);
+  D3D11StageBuffer(Device, &Result.AgentsStage, NULL, Result.UIState.AgentCount*sizeof(boids_agent));
   D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(boids_consts), Usage_Dynamic, Access_Write);
-  ArenaTempEnd(Temp);
+  MemoryReleaseScratch(Scratch);
   
   {
     D3D11_SAMPLER_DESC Desc = {0};
@@ -176,7 +180,7 @@ fn void BoidsKernelAgentsMoveRun(boids *Boids, d3d11_base *Base, boids_consts Co
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UAgentCount/BOIDS_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Boids->AgentsMove.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetSamplers(Context, 0, 1, &Boids->TexReadSampler);
   ID3D11DeviceContext_CSSetShaderResources(Context, 0, 1, &Boids->SRViewTexRead);
@@ -191,7 +195,7 @@ fn void BoidsKernelTexDiffuseRun(boids *Boids, d3d11_base *Base, boids_consts Co
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Boids->TexDiffuse.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetSamplers(Context, 0, 1, &Boids->TexReadSampler);
   ID3D11DeviceContext_CSSetShaderResources(Context, 0, 1, &Boids->SRViewTexRead);
@@ -205,7 +209,7 @@ fn void BoidsKernelAgentTrailsRun(boids *Boids, d3d11_base *Base, boids_consts C
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UAgentCount/BOIDS_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Boids->AgentsTrails.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, &Boids->UAViewAgents, NULL);
@@ -219,7 +223,7 @@ fn void BoidsKernelRenderRun(boids *Boids, d3d11_base *Base, boids_consts Consts
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Boids->Render.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetSamplers(Context, 0, 1, &Boids->TexReadSampler);
   ID3D11DeviceContext_CSSetShaderResources(Context, 0, 1, &Boids->SRViewTexRead);
@@ -232,9 +236,9 @@ fn void BoidsKernelRenderRun(boids *Boids, d3d11_base *Base, boids_consts Consts
 fn void BoidsKernelAgentsDebugRun(boids *Boids, d3d11_base *Base, boids_consts Consts)
 {
   D3D11BaseDestructure(Base);
-  u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_AGENTS_PER_THREADGROUP);
+  u32 GroupCount = Max(1, Consts.UAgentCount/BOIDS_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Boids->AgentsDebug.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, &Boids->UAViewAgents, NULL);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 2, 1, &Boids->UAViewTexRender, NULL);
@@ -247,7 +251,7 @@ fn void BoidsKernelTexResetRun(boids *Boids, d3d11_base *Base, boids_consts Cons
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Boids->TexReset.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 2, 1, &Boids->UAViewTexRead, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
@@ -260,9 +264,9 @@ fn void BoidsKernelTexResetRun(boids *Boids, d3d11_base *Base, boids_consts Cons
 fn void BoidsKernelAgentsResetRun(boids *Boids, d3d11_base *Base, boids_consts Consts)
 {
   D3D11BaseDestructure(Base);
-  u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_AGENTS_PER_THREADGROUP);
+  u32 GroupCount = Max(1, Consts.UAgentCount/BOIDS_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Boids->AgentsReset.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Boids->Consts, &Consts, sizeof(boids_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, &Boids->UAViewAgents, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, 1, 1);
@@ -293,6 +297,14 @@ fn void BoidsDraw(boids *Boids, d3d11_base *Base, boids_ui UIReq, u64 FrameCount
 {
   D3D11BaseDestructure(Base);
   local_persist u32 StepCount = 0;
+  
+  // NOTE(MIGUEL): Big problem here!!!! Since you are alowed to update the count via imgue but dont
+  ///              update and enforce that the UI.Agent count is actually the agent count it cannot be
+  //               relied on here. The agent count is detemined in UIStateInit and never changed. This 
+  //               count may be wrong if it is changed and not updated here.
+  // TODO(MIGUEL): track actual agent count seperatly from ui state. do not rely on UIState.AgentCount. update acual agent count
+  //               in reset if succesfull. 
+  
   // COMPUTE PASS
   boids_consts Consts = {
     .UWinRes = WinRes,
@@ -300,18 +312,19 @@ fn void BoidsDraw(boids *Boids, d3d11_base *Base, boids_ui UIReq, u64 FrameCount
     .UAgentCount = UIReq.AgentCount,
     .UStepCount = StepCount,
     .USearchRange = (f32)UIReq.SearchRange,
-    .UFieldOfView = UIReq.FieldOfView,
+    .UFieldOfView = -1.0f+2.0f*UIReq.FieldOfView,
     .UApplyAlignment = (f32)UIReq.ApplyAlignment,
     .UApplyCohesion = (f32)UIReq.ApplyCohesion,
     .UApplySeperation = (f32)UIReq.ApplySeperation,
     .UFrameCount = (u32)FrameCount,
   };
-  arena Arena; ArenaLocalInit(Arena, 512);
+#if 0
   ConsoleLog(Arena,
              "al: %f co: %f%\n"
              "fov: %f \n",
              Consts.UApplyAlignment, Consts.UApplyCohesion,
              Consts.UFieldOfView);
+#endif
   if((UIReq.DoStep || UIReq.AutoStep) && ((FrameCount%UIReq.StepMod)==0))
   {
     BoidsStep(Boids, Base, Consts, StepCount);
@@ -336,6 +349,7 @@ fn void BoidsDraw(boids *Boids, d3d11_base *Base, boids_ui UIReq, u64 FrameCount
   // Rasterizer Stage
   ID3D11DeviceContext_RSSetViewports(Context, 1, &Viewport);
   ID3D11DeviceContext_RSSetState(Context, RastState);
+  
   // Pixel Shader
   ID3D11DeviceContext_PSSetConstantBuffers(Context, 0, 1, &Boids->Consts);
   ID3D11DeviceContext_PSSetSamplers(Context, 0, 1, &Boids->TexRenderSampler);

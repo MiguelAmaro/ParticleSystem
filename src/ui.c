@@ -57,7 +57,7 @@ fn void UIBoidsSection(ui_state *State)
   igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
   igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, BOIDS_MAX_AGENTCOUNT, NULL, 0);
   igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 100, NULL, 0);
-  igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, -1.0, 1.0, NULL, 0);
+  igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, 0.0, 1.0, NULL, 0);
   igCheckbox("Alignment", (bool *)&Req->ApplyAlignment);      // Edit bools storing our window open/close state
   igCheckbox("Cohesion", (bool *)&Req->ApplyCohesion);      // Edit bools storing our window open/close state
   igCheckbox("Seperation", (bool *)&Req->ApplySeperation);      // Edit bools storing our window open/close state

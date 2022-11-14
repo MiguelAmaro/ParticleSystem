@@ -147,7 +147,7 @@ void ReactDiffuseRender(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffu
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->Render.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &ReactDiffuse->Consts);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &ReactDiffuse->SRViewTexRead);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, &ReactDiffuse->UAViewTexRender, NULL);
@@ -160,7 +160,7 @@ void ReactDiffuseStep(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->ReactDiffuse.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &ReactDiffuse->Consts);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &ReactDiffuse->SRViewTexRead);             // Float
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &ReactDiffuse->UAViewTexWrite, NULL);      // Float
@@ -177,14 +177,14 @@ void ReactDiffuseReset(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffus
   
   ConsoleLog("reseting\n");
   Consts.UBufferInit = 1.0f;
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1);
   ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->Reset.ComputeHandle, NULL, 0);
   ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &ReactDiffuse->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &ReactDiffuse->UAViewTexRead, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
   D3D11ClearComputeStage(Context);
   Consts.UBufferInit = 0.0f;
-  D3D11GPUMemoryOp(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, ReactDiffuse->Consts, &Consts, sizeof(reactdiffuse_consts), 1);
   ID3D11DeviceContext_CSSetShader(Context, ReactDiffuse->Reset.ComputeHandle, NULL, 0);
   ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, &ReactDiffuse->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &ReactDiffuse->UAViewTexWrite, NULL);

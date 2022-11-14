@@ -69,6 +69,11 @@ typedef    double f64;
 #define S32MAX INT32_MAX
 #define S64MAX INT64_MAX
 
+typedef enum axis2 axis2;
+enum axis2 { Axis2_X, Axis2_Y, Axis2_Count, };
+typedef enum axis3 axis3;
+enum axis3 { Axis3_X, Axis3_Y, Axis3_Z, Axis3_Count, };
+
 
 //TIME
 typedef struct datetime datetime;

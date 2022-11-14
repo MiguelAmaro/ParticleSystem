@@ -5,6 +5,14 @@
 #include <dxgi1_2.h>
 #include <d3dcompiler.h>
 
+// MEDIA FOUNDATION - VIDEO CAPTURE
+#include <mfapi.h>
+#include <mfidl.h>
+#pragma comment (lib, "mf.lib")
+#pragma comment (lib, "mfplat.lib")
+#pragma comment (lib, "ole32.lib")
+#pragma comment (lib, "mfuuid.lib")
+
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <string.h>
@@ -19,6 +27,9 @@
 #include "string.h"
 #include "os.h"
 #include "memory.c"
+u32 *ga;
+u32 *gb;
+#include "sort.h"
 #include "string.c"
 #include "mmath.h"
 #include "atomics.h"
@@ -27,6 +38,7 @@
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "cimgui.h"
 #include "cimgui_impl.h"
+#include "capture.h"
 
 #ifdef IMGUI_HAS_IMSTR
 #define igBegin igBegin_Str
@@ -64,6 +76,14 @@
 #include "ui.h"
 #include "ui.c"
 
+b32 CompareInts(void *a, void *b)
+{
+  u32 *numa = (u32 *)a;
+  u32 *numb = (u32 *)b;
+  b32 Result = *numa>*numb?1:0;
+  return Result;
+}
+
 int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int ArgCount)
 {
   OSConsoleCreate();
@@ -72,6 +92,12 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   HWND Window = OSWindowCreate(Instance, WindowDim);
   Assert(Window && "Failed to create window");
   OSInitTimeMeasure(&TimeMeasure);
+  {
+    thread_ctx ThreadContext = {0};
+    ThreadCtxInit(&ThreadContext, OSMemoryAlloc(Gigabytes(1)), Gigabytes(1));
+    ThreadCtxSet(&ThreadContext);
+  }
+  
   d3d11_base    D11Base = D3D11InitBase(Window);
   
   ImGuiIO *Io = NULL;
@@ -88,12 +114,15 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
     ShowWindow(Window, SW_SHOWDEFAULT);
   }
   
+  IMFMediaSource *VideoSource; 
+  CreateVideoDeviceSource(&VideoSource);
+  
   LARGE_INTEGER freq, c1;
   QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&c1);
   
   boids          Boids        = BoidsInit(&D11Base);
-#if 0
+#if 1
   particlesystem ParticleSystem = CreateParticleSystem(D11Base.Device, 20, (f32)WindowDim.x, (f32)WindowDim.y);
   mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
   testrend       TestRenderer   = CreateTestRenderer(D11Base.Device, D11Base.Context);
@@ -114,7 +143,7 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   ui_state UIState = {
     .SysKind = SysKind_Boids,
     .BoidsReq = Boids.UIState,
-#if 0
+#if 1
     .CcaReq = Cca.UIState,
     .PhysarumReq = Physarum.UIState,
     .ReactDiffuseReq = ReactDiffuse.UIState,

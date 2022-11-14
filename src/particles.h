@@ -123,13 +123,13 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
                                    (ID3D11Resource*)System->ParticleDataB);
   // NOTE(MIGUEL): This is not tested.
   // TODO(MIGUEL): Verify this works.
-  D3D11GPUMemoryOp(Context,
-                   System->DbgStageBuffer,
-                   &System->ParticlesA,
-                   sizeof(u32), //particle 
-                   64,
-                   //System->ParticleMaxCount.x,
-                   GPU_MEM_READ);
+  D3D11GPUMemoryRead(Context,
+                     System->DbgStageBuffer,
+                     &System->ParticlesA,
+                     sizeof(u32), //particle 
+                     64
+                     //System->ParticleMaxCount.x,
+                     );
   
   ID3D11DeviceContext_CopyStructureCount(Context, System->ConstParticleCount, 0, System->UOAccessViewA);
 #endif

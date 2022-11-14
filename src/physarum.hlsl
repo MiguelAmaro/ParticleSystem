@@ -92,6 +92,12 @@ float2 SimpleTurns(uint3 id, agent Agent)
   float2 NewVel = (Trail.x>0)?RandomDirection(id.xx*0.01 + sin(UTime)): Agent.Vel;
   return NewVel;
 }
+bool IsVisable(agent Agent, float2 Dir, float Dist)
+{
+  bool InField = (dot(Dir, normalize(Agent.Vel)) > UFieldOfView);
+  bool InRange = Dist < USearchRange;
+  return InRange & InField;
+}
 void DrawAgentSearchRange(agent Agent)
 {
   int Range = USearchRange;
@@ -109,7 +115,7 @@ void DrawAgentSearchRange(agent Agent)
         if(UStepCount%1 == 0)
         {
           // Draw the search area
-          TexDebug[Pos] += 0.01*float4(1.0/(float)UAgentCount, 0.0, 0.0, 0.0);
+          TexDebug[Pos] += 0.1*float4(1.0/(float)UAgentCount, 0.0, 0.0, 0.0);
         }
       }
     }
@@ -127,7 +133,7 @@ float2 Alignment(agent Agent, uint AgentId)
     agent Neighbor = Agents[NeighborId];
     float2 Dir  = normalize(Neighbor.Pos - Agent.Pos);
     float  Dist = distance (Neighbor.Pos, Agent.Pos);   
-    if((Dist < USearchRange) && (dot(Dir, normalize(Agent.Vel)) > UFieldOfView))
+    if(IsVisable(Agent, Dist, Dist))
     {
       AlignmentAvg += Neighbor.Vel; 
       NeighborCount++;
@@ -136,8 +142,7 @@ float2 Alignment(agent Agent, uint AgentId)
   if(NeighborCount>0)
   {
     AlignmentAvg /= (float)NeighborCount;
-    float2 Desired = Agent.MaxSpeed*normalize(AlignmentAvg);
-    Steer = Limit(Desired - Agent.Vel, Agent.MaxForce);
+    Steer = Limit(AlignmentAvg, Agent.MaxForce);
   }
   return Steer;
 }
@@ -152,7 +157,7 @@ float2 Cohesion(agent Agent, uint AgentId)
     agent Neighbor = Agents[NeighborId];
     float2 Dir  = normalize(Neighbor.Pos - Agent.Pos);
     float  Dist = distance (Neighbor.Pos, Agent.Pos);   
-    if((Dist < USearchRange) && (dot(Dir, normalize(Agent.Vel)) > UFieldOfView))
+    if(IsVisable(Agent, Dist, Dist))
     {
       PosAvg += Neighbor.Pos;
       NeighborCount++;
@@ -161,8 +166,8 @@ float2 Cohesion(agent Agent, uint AgentId)
   if(NeighborCount>0)
   {
     PosAvg /= (float)NeighborCount;
-    float2 Desired = Agent.MaxSpeed*normalize(PosAvg-Agent.Pos);
-    Steer = Limit(Desired - Agent.Vel, Agent.MaxForce);
+    float2 Target = PosAvg-Agent.Pos;
+    Steer = Limit(Target, Agent.MaxForce);
   }
   return Steer;
 }
@@ -205,8 +210,8 @@ void KernelAgentsReset(uint3 id : SV_DispatchThreadID)
   uint AgentId = id.x;
   if(AgentId > UAgentCount) return;       
   agent Agent;
-  float  InitialSpeed = 5.0;
-  float  InitialForce = 5.0;
+  float  InitialSpeed = 3.0;
+  float  InitialForce = 1.0;
   float2 InitialDir   = RandomDirection(id.xx*0.1 + sin(UTime));
   Agent.Pos = rand22(id.x*0.0001 + UTime*0.001)*UTexRes;
   Agent.Vel = InitialDir*InitialSpeed;
@@ -230,12 +235,12 @@ void KernelAgentsMove(uint3 id : SV_DispatchThreadID)
   if velocity is under max speed it will be scaled it up.
   */
   float dt = 1.0;
-  float2 A = UApplyAlignment *Alignment (Agent, AgentId);
-  float2 C = UApplyCohesion  *Cohesion  (Agent, AgentId);
-  float2 S = UApplySeperation*Seperation(Agent, AgentId);
-  float2 NewAcc = A+C+S;
-  float2 NewVel = Limit(NewAcc*dt+Agent.Vel, Agent.MaxSpeed);
-  float2 NewPos = ToroidalWrap(0.5*NewAcc*dt*dt + Agent.Vel*dt + Agent.Pos);
+  float2 A = Alignment(Agent, AgentId); //UApplyAlignment *
+  float2 C = Cohesion (Agent, AgentId); //UApplyCohesion  *
+  float2 S = Seperation(Agent, AgentId); //UApplySeperation*
+  float2 RawVel = A+C+S+Agent.Vel;
+  float2 NewVel = Limit(RawVel, Agent.MaxSpeed);
+  float2 NewPos = Agent.Pos + NewVel;
   Agent.Vel = NewVel;
   Agent.Pos = NewPos;
   Agents[AgentId] = Agent;

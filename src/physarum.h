@@ -174,7 +174,7 @@ fn void PhysarumKernelAgentsMoveRun(physarum *Physarum, d3d11_base *Base, physar
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UAgentCount/Physarum_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Physarum->AgentsMove.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetSamplers(Context, 0, 1, &Physarum->TexReadSampler);
   ID3D11DeviceContext_CSSetShaderResources(Context, 0, 1, &Physarum->SRViewTexRead);
@@ -189,7 +189,7 @@ fn void PhysarumKernelTexDiffuseRun(physarum *Physarum, d3d11_base *Base, physar
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/Physarum_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Physarum->TexDiffuse.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetSamplers(Context, 0, 1, &Physarum->TexReadSampler);
   ID3D11DeviceContext_CSSetShaderResources(Context, 0, 1, &Physarum->SRViewTexRead);
@@ -203,7 +203,7 @@ fn void PhysarumKernelAgentTrailsRun(physarum *Physarum, d3d11_base *Base, physa
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UAgentCount/Physarum_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Physarum->AgentsTrails.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, &Physarum->UAViewAgents, NULL);
@@ -217,7 +217,7 @@ fn void PhysarumKernelRenderRun(physarum *Physarum, d3d11_base *Base, physarum_c
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/Physarum_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Physarum->Render.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetSamplers(Context, 0, 1, &Physarum->TexReadSampler);
   ID3D11DeviceContext_CSSetShaderResources(Context, 0, 1, &Physarum->SRViewTexRead);
@@ -232,7 +232,7 @@ fn void PhysarumKernelAgentsDebugRun(physarum *Physarum, d3d11_base *Base, physa
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/Physarum_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Physarum->AgentsDebug.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, &Physarum->UAViewAgents, NULL);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 2, 1, &Physarum->UAViewTexRender, NULL);
@@ -245,7 +245,7 @@ fn void PhysarumKernelTexResetRun(physarum *Physarum, d3d11_base *Base, physarum
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/Physarum_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Physarum->TexReset.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 2, 1, &Physarum->UAViewTexRead, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
@@ -260,7 +260,7 @@ fn void PhysarumKernelAgentsResetRun(physarum *Physarum, d3d11_base *Base, physa
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/Physarum_AGENTS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Physarum->AgentsReset.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryOp(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1, GPU_MEM_WRITE);
+  D3D11GPUMemoryWrite(Context, Physarum->Consts, &Consts, sizeof(physarum_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Physarum->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, &Physarum->UAViewAgents, NULL);
   ID3D11DeviceContext_Dispatch(Context, GroupCount, 1, 1);

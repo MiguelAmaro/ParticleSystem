@@ -21,6 +21,7 @@ struct time_measure
   time_entry *Top;
   time_entry *OnePastLast;
 };
+threadlocal u32 gWin32ThreadContextId = 0;
 void OSInitTimeMeasure(time_measure *Time)
 {
   Time->TickFrequency = 0;
@@ -203,6 +204,7 @@ fn v2s OSWindowGetSize(HWND Window)
   return WindowDim;
 }
 //~ EVENTS
+
 fn b32 OSProcessMessges(void)
 {
   MSG Msg;

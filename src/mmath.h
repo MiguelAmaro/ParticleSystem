@@ -464,5 +464,13 @@ u32 BGRAPack4x8(v4f Data)
                 (RoundF32toU32(Data.b) <<  0));
   return Result;
 }
-
+s32 Pow(s32 b, s32 e)
+{
+  s32 Result = 1;
+  foreach(mult, e, s32)
+  {
+    Result *= b;
+  }
+  return Result;
+}
 #endif // MATH_H

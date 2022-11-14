@@ -96,3 +96,45 @@ void ArenaTempEnd(arena_temp Temp)
 	Temp.Arena->CurrOffset = Temp.CurrOffset;
   return;
 }
+//~ THREAD CONTEXT
+fn void ThreadCtxSet(void *Ptr)
+{
+  TlsSetValue(gWin32ThreadContextId, Ptr);
+  return;
+}
+fn thread_ctx *ThreadCtxGet(void)
+{
+  thread_ctx *Result = (thread_ctx *)TlsGetValue(gWin32ThreadContextId);
+  return Result;
+}
+fn arena_temp ThreadCtxGetScratch(thread_ctx *Ctx, arena **Conflicts, u64 ConflictCount)
+{
+  arena_temp Result = {0};
+  arena *Scratch = Ctx->ScratchPool;
+  for(u64 Idx=0; Idx< ArrayCount(Ctx->ScratchPool); Idx++, Scratch++)
+  {
+    b32 IsNotConflict = 1;
+    arena **Conflict = Conflicts;
+    for(u32 j=0; j<ConflictCount; j++, Conflict++)
+    {
+      if(Scratch == *Conflict) { IsNotConflict = 0; break; }
+    }
+    if(IsNotConflict) { Result = ArenaTempBegin(Scratch); break; }
+  }
+  return Result;
+}
+fn void ThreadCtxInit(thread_ctx *Ctx, void *Memory, u64 MemorySize)
+{
+  // TODO(MIGUEL): This is kine of scetch 
+  arena *Scratch = Ctx->ScratchPool;
+  u64 ArenaCount = ArrayCount(Ctx->ScratchPool);
+  u64 PerArenaSize  = MemoryAlignFoward(MemorySize/ArenaCount, 8);
+  u8 *End = (u8 *)Memory+MemorySize;
+  for(u32 Idx=0; Idx<ArrayCount(Ctx->ScratchPool); Idx++, Scratch++)
+  {
+    u8 *ArenaMem = (u8 *)MemoryAlignFoward((u64)((u8 *)Memory + PerArenaSize*Idx), 8);
+    u64 ArenaSize = Min(PerArenaSize, (u64)(End-ArenaMem));
+    *Scratch = ArenaInit(NULL, ArenaSize, ArenaMem); 
+  }
+  return;
+}
