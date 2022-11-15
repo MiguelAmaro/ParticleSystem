@@ -93,7 +93,7 @@ fn void UIControlCluster(ui_state *State)
   igCheckbox("Toggle Tex", &State->TexToggle);      // Edit bools storing our window open/close state
   igColorEdit3("Clear Color", State->ClearColor.e, 0); // Edit 3 floats representing a color
   igSliderFloat("Slider", &State->Slider, 0.0f, 1.0f, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
-  igSliderInt(SysStrTable[State->SysKind], (s32 *)&State->SysKind, 0, SysKind_Count, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
+  igSliderInt(SysStrTable[State->SysKind], (s32 *)&State->SysKind, 0, SysKind_Count-1, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
   //arena Arena; ArenaLocalInit(Arena, 256);
   switch(State->SysKind)
   {

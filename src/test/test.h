@@ -90,10 +90,10 @@ testrend CreateTestRenderer(ID3D11Device* Device, ID3D11DeviceContext * Context)
   D3D11StructuredBuffer(Device, &Test.ConsumeStructBuffer, Test.Vertices, sizeof(test_vert), Test.VertexMaxCount);
   D3D11BufferViewUAAppend(Device, &Test.ConsumeView, Test.ConsumeStructBuffer, Test.VertexMaxCount);
   // Shaders
-  ID3DBlob* VShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testvshader.hlsl"), Str8("VSMAIN"), "vs_5_0", "Test System");
-  ID3DBlob* PShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testpshader.hlsl"), Str8("PSMAIN"), "ps_5_0", "Test System");
-  ID3DBlob* GShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testgshader.hlsl"), Str8("GSMAIN"), "gs_5_0", "Test System");
-  ID3DBlob* CShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\testcshader.hlsl"), Str8("CSMAIN"), "cs_5_0", "Test System");
+  ID3DBlob* VShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\test\\testvshader.hlsl"), Str8("VSMAIN"), "vs_5_0", "Test System");
+  ID3DBlob* PShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\test\\testpshader.hlsl"), Str8("PSMAIN"), "ps_5_0", "Test System");
+  ID3DBlob* GShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\test\\testgshader.hlsl"), Str8("GSMAIN"), "gs_5_0", "Test System");
+  ID3DBlob* CShaderBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\test\\testcshader.hlsl"), Str8("CSMAIN"), "cs_5_0", "Test System");
   {
     D3D11_INPUT_ELEMENT_DESC Desc[] =
     {

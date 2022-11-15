@@ -135,7 +135,7 @@ cca CcaInit(d3d11_base *Base)
     { "IAPOS"     , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct vert, Pos     ), D3D11_INPUT_PER_VERTEX_DATA, 0 },
     { "IATEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct vert, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0 },
   };
-  str8 ShaderFile = Str8("F:\\Dev\\ParticleSystem\\src\\cca.hlsl");
+  str8 ShaderFile = Str8("F:\\Dev\\ParticleSystem\\src\\cca\\cca.hlsl");
   Result.Reset = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("ResetKernel"), NULL, 0, Base);
   Result.Step  = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("StepKernel"), NULL, 0, Base);
   Result.Vertex = D3D11ShaderCreate(ShaderKind_Vertex, ShaderFile, Str8("VSMain"), Desc, ArrayCount(Desc), Base);
@@ -147,7 +147,7 @@ void CcaStep(cca *Cca, d3d11_base *Base, cca_consts Consts)
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Cca->Step.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryRead(Context, Cca->Consts, &Consts, sizeof(cca_consts), 1);
+  D3D11GPUMemoryWrite(Context, Cca->Consts, &Consts, sizeof(cca_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Cca->Consts);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, &Cca->SRViewTexRead);             // Float
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Cca->UAViewTexWrite, NULL);      // Float
@@ -162,7 +162,7 @@ void CcaReset(cca *Cca, d3d11_base *Base, cca_consts Consts)
   D3D11BaseDestructure(Base);
   u32 GroupCount = Max(1, Consts.UTexRes.x/BOIDS_PIXELS_PER_THREADGROUP);
   ID3D11DeviceContext_CSSetShader(Context, Cca->Reset.ComputeHandle, NULL, 0);
-  D3D11GPUMemoryRead(Context, Cca->Consts, &Consts, sizeof(cca_consts), 1);
+  D3D11GPUMemoryWrite(Context, Cca->Consts, &Consts, sizeof(cca_consts), 1);
   ID3D11DeviceContext_CSSetConstantBuffers(Context, 0, 1, &Cca->Consts);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, &Cca->UAViewTexWrite, NULL);      // Float
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);

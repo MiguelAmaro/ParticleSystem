@@ -11,10 +11,13 @@ enum system_kind
   SysKind_Physarum,
   SysKind_ReactDiffuse,
   SysKind_Particles,
+  SysKind_Instancing,
+  SysKind_Tex3d,
+  SysKind_Volumetric,
   SysKind_Count,
 };
 const char *SysStrTable[] =
-{ "Test", "MM", "Cca", "Boids", "Physarum", "React Diffuse", "Particles", };
+{ "Test", "MM", "Cca", "Boids", "Physarum", "React Diffuse", "Particles", "Instancing", "Tex 3d", "Volumetric"};
 typedef struct ui_state ui_state;
 struct ui_state 
 {

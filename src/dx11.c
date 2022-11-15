@@ -351,11 +351,40 @@ fn void D3D11Tex2DViewSR(ID3D11Device* Device, ID3D11ShaderResourceView **SRV, I
   else ID3D11Texture2D_Release(Texture);
   return;
 }
+#if 0
+fn void D3D11TexCubeViewSR(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format)
+{
+  D3D11_TEXTURE2D_DESC TexDesc = {0};
+  {
+    TexDesc.Width          = TexDim.x;
+    TexDesc.Height         = TexDim.y;
+    TexDesc.MipLevels      = 1;
+    TexDesc.ArraySize      = 6;
+    TexDesc.Format         = Format;
+    TexDesc.Usage          = D3D11_USAGE_DEFAULT;
+    TexDesc.BindFlags      = D3D11_BIND_UNORDERED_ACCESS;
+    TexDesc.CPUAccessFlags = 0;
+    TexDesc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0};
+  }
+  D3D11_SUBRESOURCE_DATA Initial = {0};
+  {
+    Initial.pSysMem = Data;
+    Initial.SysMemPitch = Stride*TexDim.x;
+  }
+  ID3D11Texture2D *Texture;
+  D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {0};
+  SRVDesc.ViewDimension       = D3D11_SRV_DIMENSION_TEXTURE2D;
+  SRVDesc.Format              = Format;
+  SRVDesc.Texture2D           =  (D3D11_TEXCUBE_SRV){0, 1};
+  ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
+  if(GetTex != NULL) *GetTex = Texture;
+  else ID3D11Texture2D_Release(Texture);
+}
+#endif
 fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format)
 {
   D3D11_TEXTURE2D_DESC TexDesc = {0};
   {
-    
     TexDesc.Width          = TexDim.x;
     TexDesc.Height         = TexDim.y;
     TexDesc.MipLevels      = 1;
@@ -372,7 +401,7 @@ fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, 
     Initial.SysMemPitch = Stride*TexDim.x;
   }
   ID3D11Texture2D *Texture;
-  ID3D11Device_CreateTexture2D(Device, &TexDesc, &Initial, &Texture);
+  ID3D11Device_CreateTexture2D(Device, &TexDesc, Data==NULL?NULL:&Initial, &Texture);
   D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {0};
   {
     UAVDesc.ViewDimension       = D3D11_UAV_DIMENSION_TEXTURE2D;

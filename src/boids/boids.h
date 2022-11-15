@@ -163,7 +163,7 @@ boids BoidsInit(d3d11_base *Base)
     { "IAPOS"     , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct vert, Pos     ), D3D11_INPUT_PER_VERTEX_DATA, 0 },
     { "IATEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct vert, TexCoord), D3D11_INPUT_PER_VERTEX_DATA, 0 },
   };
-  str8 ShaderFile = Str8("F:\\Dev\\ParticleSystem\\src\\boids.hlsl");
+  str8 ShaderFile = Str8("F:\\Dev\\ParticleSystem\\src\\boids\\boids.hlsl");
   Result.AgentsReset = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile,Str8("KernelAgentsReset"), NULL, 0, Base);
   Result.AgentsMove  = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelAgentsMove"), NULL, 0, Base);
   Result.AgentsTrails  = D3D11ShaderCreate(ShaderKind_Compute, ShaderFile, Str8("KernelAgentsTrails"), NULL, 0, Base);

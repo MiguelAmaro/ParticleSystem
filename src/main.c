@@ -60,15 +60,15 @@ u32 *gb;
 #define STR2(x) #x
 #define STR(x) STR2(x)
 
-#include "particles.h"
-#include "test.h"
+#include "particles/particles.h"
+#include "test/test.h"
 #include "mm.h"
-#include "boids.h"
-#include "physarum.h"
-#include "cca.h"
-#include "reactdiffuse.h"
-#include "instancing.h"
-#include "tex3d.h"
+#include "boids/boids.h"
+#include "physarum/physarum.h"
+#include "cca/cca.h"
+#include "reactdiffuse/reactdiffuse.h"
+#include "instancing/instancing.h"
+#include "tex3d/tex3d.h"
 
 // TODO(MIGUEL): Push function for Sys str table
 // TODO(MIGUEL): Push function for Sys str table
@@ -122,13 +122,15 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   QueryPerformanceCounter(&c1);
   
   boids          Boids        = BoidsInit(&D11Base);
-#if 1
+#if 0
+  instancing     Instancing    = InstancingInit(&D11Base);
   particlesystem ParticleSystem = CreateParticleSystem(D11Base.Device, 20, (f32)WindowDim.x, (f32)WindowDim.y);
   mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
   testrend       TestRenderer   = CreateTestRenderer(D11Base.Device, D11Base.Context);
   cca            Cca           = CcaInit(&D11Base);
   physarum       Physarum       = PhysarumInit(&D11Base);
   reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
+  boids          Boids;
 #else
   particlesystem ParticleSystem;
   mm_render      MMRender      ;
@@ -143,7 +145,8 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   ui_state UIState = {
     .SysKind = SysKind_Boids,
     .BoidsReq = Boids.UIState,
-#if 1
+#if 0
+    .InstancingReq = Instancing.UIState,
     .CcaReq = Cca.UIState,
     .PhysarumReq = Physarum.UIState,
     .ReactDiffuseReq = ReactDiffuse.UIState,
