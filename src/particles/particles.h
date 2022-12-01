@@ -200,9 +200,10 @@ void ParticleSystemLoadShaders(particlesystem *System, ID3D11Device* Device)
   return;
 }
 
-particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32 WindowWidth,
+particlesystem CreateParticleSystem(d3d11_base* Base, u32 ParticleCount, f32 WindowWidth,
                                     f32 WindowHeight)
 {
+  D3D11BaseDestructure(Base);
   particlesystem Result = {0};
   Result.ParticleMaxCount = V4u(ParticleCount, 0, 0, 0);
   Assert(Result.ParticlesA==NULL);
@@ -233,59 +234,62 @@ particlesystem CreateParticleSystem(ID3D11Device* Device, u32 ParticleCount, f32
   Result.ConstData.transforms.ProjMatrix = M4fOrtho(0.0f, WindowWidth,
                                                     0.0f, WindowHeight,
                                                     0.0f, 100.0f);
-  //ping pong stuct buffers(append/consume)
-  D3D11StructuredBuffer(Device, &Result.ParticleDataA, Result.ParticlesA, sizeof(particle), Result.ParticleMaxCount.x);
-  //Used by CSMain & CSHelper
-  D3D11BufferViewUA(Device, &Result.UOAccessViewA, Result.ParticleDataA, Result.ParticleMaxCount.x);
-  //Used by CSMain
-  D3D11StructuredBuffer(Device, &Result.ParticleDataB, Result.ParticlesB, sizeof(particle), Result.ParticleMaxCount.x);
-  //Used by CSMain
-  D3D11BufferViewUA(Device, &Result.UOAccessViewB, Result.ParticleDataB, Result.ParticleMaxCount.x);
+  D3D11ScopedBase(Base)
   {
-    //Used by VS
-    // NOTE(MIGUEL): I dont know if i neeed to spec the count here doesnt the count get modified 
-    //               by the gpu any way and im not sure if technically im saying that there are 100
-    //               particles. It make sense because the buffer is a fixed size, right?
+    //ping pong stuct buffers(append/consume)
+    D3D11BufferStructUA(&Result.ParticleDataA, Result.ParticlesA, sizeof(particle), Result.ParticleMaxCount.x);
+    //Used by CSMain & CSHelper
+    D3D11BufferViewUA(Device, &Result.UOAccessViewA, Result.ParticleDataA, Result.ParticleMaxCount.x);
+    //Used by CSMain
+    D3D11BufferStructUA(&Result.ParticleDataB, Result.ParticlesB, sizeof(particle), Result.ParticleMaxCount.x);
+    //Used by CSMain
+    D3D11BufferViewUA(Device, &Result.UOAccessViewB, Result.ParticleDataB, Result.ParticleMaxCount.x);
+    {
+      //Used by VS
+      // NOTE(MIGUEL): I dont know if i neeed to spec the count here doesnt the count get modified 
+      //               by the gpu any way and im not sure if technically im saying that there are 100
+      //               particles. It make sense because the buffer is a fixed size, right?
 #if 1
-    D3D11_SHADER_RESOURCE_VIEW_DESC Desc = {0};
-    Desc.Format = DXGI_FORMAT_UNKNOWN;
-    Desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-    Desc.Buffer.FirstElement = 0;
-    Desc.Buffer.NumElements = Result.ParticleMaxCount.x;
-    ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Result.ParticleDataB, &Desc, &Result.ShaderResViewB);
+      D3D11_SHADER_RESOURCE_VIEW_DESC Desc = {0};
+      Desc.Format = DXGI_FORMAT_UNKNOWN;
+      Desc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+      Desc.Buffer.FirstElement = 0;
+      Desc.Buffer.NumElements = Result.ParticleMaxCount.x;
+      ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Result.ParticleDataB, &Desc, &Result.ShaderResViewB);
 #endif
+    }
+    
+    //Indirect Args
+    Result.ArgBuffer[0] = 1; //VertexCountPerInstance: 4(expects quad)
+    Result.ArgBuffer[1] = 0; //InstanceCount: definede by gpu proveide via ::CopyStructCount
+    Result.ArgBuffer[2] = 0; //StartVertexLocation: not sure, no vertex buffer, quad data is generated
+    Result.ArgBuffer[3] = 0; //StartInstanceLocation: start of sturcturedbuffer(append/consume)
+    D3D11BufferArgs(&Result.IndirectDrawArgs, Result.ArgBuffer, sizeof(Result.ArgBuffer));
+    // This is a staging buffer so its data can be read from the cpu. The contents of the ArgBuffer will be 
+    // copied to this buffer. 
+    u32 Dummy[64] = {0};
+    D3D11BufferStaging(&Result.DbgStageBuffer, Dummy, sizeof(Dummy));
+    //Used By CSMain
+    D3D11BufferConstant(&Result.ConstSimParams,
+                        &Result.ParticleMaxCount, 
+                        sizeof(Result.ConstData.sim_params), Usage_Default, Access_None);
+    //Used By CSMain
+    D3D11BufferConstant(&Result.ConstParticleCount,
+                        &Result.ParticleMaxCount, 
+                        sizeof(v4u), Usage_Default, Access_None);
+    //Used By CSMain
+    D3D11BufferConstant(&Result.ConstParticleParams,
+                        &Result.ConstData.particle_params, 
+                        sizeof(Result.ConstData.particle_params), Usage_Default, Access_None);
+    //Used By GSMain
+    D3D11BufferConstant(&Result.ConstUpdatedFrameData,
+                        &Result.ConstData.transforms, 
+                        sizeof(Result.ConstData.transforms), Usage_Default, Access_None);
+    //Used By GSMain
+    D3D11BufferConstant(&Result.ConstParticleRenderParams,
+                        &Result.ConstData.particle_render_params, 
+                        sizeof(Result.ConstData.particle_render_params), Usage_Default, Access_None);
   }
-  
-  //Indirect Args
-  Result.ArgBuffer[0] = 1; //VertexCountPerInstance: 4(expects quad)
-  Result.ArgBuffer[1] = 0; //InstanceCount: definede by gpu proveide via ::CopyStructCount
-  Result.ArgBuffer[2] = 0; //StartVertexLocation: not sure, no vertex buffer, quad data is generated
-  Result.ArgBuffer[3] = 0; //StartInstanceLocation: start of sturcturedbuffer(append/consume)
-  D3D11ArgsBuffer(Device, &Result.IndirectDrawArgs, Result.ArgBuffer, sizeof(Result.ArgBuffer));
-  // This is a staging buffer so its data can be read from the cpu. The contents of the ArgBuffer will be 
-  // copied to this buffer. 
-  u32 Dummy[64] = {0};
-  D3D11StageBuffer(Device, &Result.DbgStageBuffer, Dummy, sizeof(Dummy));
-  //Used By CSMain
-  D3D11ConstantBuffer(Device, &Result.ConstSimParams,
-                      &Result.ParticleMaxCount, 
-                      sizeof(Result.ConstData.sim_params), Usage_Default, Access_None);
-  //Used By CSMain
-  D3D11ConstantBuffer(Device, &Result.ConstParticleCount,
-                      &Result.ParticleMaxCount, 
-                      sizeof(v4u), Usage_Default, Access_None);
-  //Used By CSMain
-  D3D11ConstantBuffer(Device, &Result.ConstParticleParams,
-                      &Result.ConstData.particle_params, 
-                      sizeof(Result.ConstData.particle_params), Usage_Default, Access_None);
-  //Used By GSMain
-  D3D11ConstantBuffer(Device, &Result.ConstUpdatedFrameData,
-                      &Result.ConstData.transforms, 
-                      sizeof(Result.ConstData.transforms), Usage_Default, Access_None);
-  //Used By GSMain
-  D3D11ConstantBuffer(Device, &Result.ConstParticleRenderParams,
-                      &Result.ConstData.particle_render_params, 
-                      sizeof(Result.ConstData.particle_render_params), Usage_Default, Access_None);
   {
     // checkerboard texture, with 50% transparency on black colors
     unsigned int pixels[] =

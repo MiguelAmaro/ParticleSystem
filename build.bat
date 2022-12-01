@@ -15,7 +15,8 @@ set MSVC_WARNINGS=^ -wd4700 -wd4820 -wd4668 -wd4577 -wd5045 -wd4505 ^
 -wd4365 -wd4305 -wd4201 -wd4100 -wd4191 -wd5246  -wd4061 -wd4514 -wd5219 -wd4189 -wd4101 -wd4013 -wd4324
 set MSVC_FLAGS= %MSVC_WARNINGS% -nologo -Wall -Zi -Od -std:c11 ^
 -I%PROJECT_DIR%\thirdparty\cimgui\ -I%PROJECT_DIR%\thirdparty\cimgui\imgui\ -I%PROJECT_DIR%\thirdparty\cimgui\generator\output\ ^
--I%PROJECT_DIR%\thirdparty\cimgui\imgui\backends\
+-I%PROJECT_DIR%\thirdparty\cimgui\imgui\backends\ ^
+-I%PROJECT_DIR%\thirdparty\stb\
 
 rem START BUILD
 rem ============================================================

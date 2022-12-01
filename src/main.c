@@ -1,6 +1,7 @@
 #define COBJMACROS
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <wincrypt.h>
 #include <d3d11.h>
 #include <dxgi1_2.h>
 #include <d3dcompiler.h>
@@ -12,6 +13,11 @@
 #pragma comment (lib, "mfplat.lib")
 #pragma comment (lib, "ole32.lib")
 #pragma comment (lib, "mfuuid.lib")
+
+//PRNG
+//#include "pcg32.h"
+#pragma comment (lib, "advapi32.lib")
+
 
 #define _USE_MATH_DEFINES
 #include <math.h>
@@ -27,12 +33,12 @@
 #include "string.h"
 #include "os.h"
 #include "memory.c"
-u32 *ga;
-u32 *gb;
+
 #include "sort.h"
 #include "string.c"
 #include "mmath.h"
 #include "atomics.h"
+#include "images.h"
 #include "dx11.h"
 #include "dx11.c"
 #define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
@@ -60,15 +66,21 @@ u32 *gb;
 #define STR2(x) #x
 #define STR(x) STR2(x)
 
+//PROJECTS
 #include "particles/particles.h"
 #include "test/test.h"
 #include "mm.h"
 #include "boids/boids.h"
 #include "physarum/physarum.h"
 #include "cca/cca.h"
+#include "eoc/eoc.h"
+#include "wfc/wfc.h"
 #include "reactdiffuse/reactdiffuse.h"
+#include "volumetric/volumetric.h"
 #include "instancing/instancing.h"
 #include "tex3d/tex3d.h"
+#include "terrain/terrain.h"
+//PROJECTS
 
 // TODO(MIGUEL): Push function for Sys str table
 // TODO(MIGUEL): Push function for Sys str table
@@ -83,7 +95,6 @@ b32 CompareInts(void *a, void *b)
   b32 Result = *numa>*numb?1:0;
   return Result;
 }
-
 int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int ArgCount)
 {
   OSConsoleCreate();
@@ -121,40 +132,47 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&c1);
   
-  boids          Boids        = BoidsInit(&D11Base);
+  eoc Eoc        = EocInit(&D11Base);
 #if 0
-  instancing     Instancing    = InstancingInit(&D11Base);
-  particlesystem ParticleSystem = CreateParticleSystem(D11Base.Device, 20, (f32)WindowDim.x, (f32)WindowDim.y);
+  reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
+  wfc Wfc        = WfcInit(&D11Base);
+  boids          Boids        = BoidsInit(&D11Base);
+  instancing     Instancing ;//   = InstancingInit(&D11Base);
+  particlesystem ParticleSystem = CreateParticleSystem(&D11Base, 20, (f32)WindowDim.x, (f32)WindowDim.y);
   mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
-  testrend       TestRenderer   = CreateTestRenderer(D11Base.Device, D11Base.Context);
+  testrend       TestRenderer   = CreateTestRenderer(&D11Base);
   cca            Cca           = CcaInit(&D11Base);
   physarum       Physarum       = PhysarumInit(&D11Base);
-  reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
-  boids          Boids;
 #else
+  boids          Boids;
+  reactdiffuse   ReactDiffuse ;
+  wfc Wfc        ;
   particlesystem ParticleSystem;
   mm_render      MMRender      ;
   testrend       TestRenderer  ;
   cca            Cca           ;
   physarum       Physarum      ;
-  reactdiffuse   ReactDiffuse;
+  //reactdiffuse   ReactDiffuse;
 #endif
   // AddSystem( "React Diffuse System"); //no more string table i just declare name here and have and store in buffer. ui can traverse array and pick whatever.
   
   //IMGUI state
   ui_state UIState = {
-    .SysKind = SysKind_Boids,
-    .BoidsReq = Boids.UIState,
+    .SysKind = SysKind_Eoc,
+    .EocReq = Eoc.UIState
 #if 0
+    .ReactDiffuseReq = ReactDiffuse.UIState,
+    .WfcReq = Wfc.UIState,
+    .BoidsReq = Boids.UIState,
     .InstancingReq = Instancing.UIState,
     .CcaReq = Cca.UIState,
     .PhysarumReq = Physarum.UIState,
-    .ReactDiffuseReq = ReactDiffuse.UIState,
 #endif
   };
   //ParticleSystemLoadShaders(&ParticleSystem, D11Base.Device);
   u64 FrameCount = 0;
   b32 Running = 1;
+  
   for (;Running;)
   {
     // process all incoming Windows messages
@@ -200,6 +218,7 @@ for(.Syscount)
 
   }
   */
+      
       switch(UIState.SysKind)
       {
         case SysKind_MM:
@@ -246,12 +265,30 @@ for(.Syscount)
         } break;
         case SysKind_ReactDiffuse:
         {
-          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Reset);
           D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.ReactDiffuse);
+          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Reset);
           D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Render);
           D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Vertex);
           D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Pixel);
+          D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Bump);
           ReactDiffuseDraw(&ReactDiffuse, &D11Base, UIState.ReactDiffuseReq, FrameCount, WindowDimu);
+        } break;
+        case SysKind_Wfc:
+        {
+          D3D11ShaderAsyncHotReload(&D11Base, &Wfc.Vertex);
+          D3D11ShaderAsyncHotReload(&D11Base, &Wfc.Pixel);
+          WfcDraw(&Wfc, &D11Base, FrameCount, WindowDimu);
+        } break;
+        case SysKind_Eoc:
+        {
+          Eoc.UIState = UIState.EocReq;
+          D3D11ShaderAsyncHotReload(&D11Base, &Eoc.Vertex);
+          D3D11ShaderAsyncHotReload(&D11Base, &Eoc.Pixel);
+          D3D11ShaderAsyncHotReload(&D11Base, &Eoc.Reset);
+          D3D11ShaderAsyncHotReload(&D11Base, &Eoc.Render);
+          D3D11ShaderAsyncHotReload(&D11Base, &Eoc.Step);
+          D3D11ShaderAsyncHotReload(&D11Base, &Eoc.CopyDown);
+          EocDraw(&Eoc, &D11Base, FrameCount, WindowDimu);
         } break;
         case SysKind_Particles:
         {

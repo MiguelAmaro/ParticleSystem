@@ -170,4 +170,68 @@
   f32 MedianValue;
   u32 Left;
   u32 Right;
+  
+  ID3DBlob *CompileD3D11Shader(char *ShaderFileDir, const char *ShaderEntry, const char *ShaderTypeAndVer)
+  {
+    ID3DBlob *ShaderBlob, *Error;
+    HRESULT Hr;
+    FILE *ShaderFile;
+    fopen_s(&ShaderFile, ShaderFileDir, "rb");
+    u8 Buffer[4096*2];
+    arena Arena = ArenaInit(&Arena, 4096*2, &Buffer);
+    str8 ShaderSrc = OSFileRead(Str8(ShaderFileDir), &Arena);
+    UINT flags = D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS | D3DCOMPILE_WARNINGS_ARE_ERRORS;
+    flags |= D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+    Hr = D3DCompile(ShaderSrc.Data, ShaderSrc.Size, NULL, NULL, NULL,
+                    ShaderEntry, ShaderTypeAndVer, flags, 0, &ShaderBlob, &Error);
+    if (FAILED(Hr))
+    {
+      const char* message = ID3D10Blob_GetBufferPointer(Error);
+      OutputDebugStringA(message);
+      Assert(!"[TestCode]: Failed to load shader of type [meh] !!!");
+    }
+    return ShaderBlob;
+  }
+  
+  ID3D11DeviceContext     *Context    = Base->Context;
+  D3D11_VIEWPORT           Viewport   = Base->Viewport;
+  ID3D11RasterizerState   *RastState  = Base->RasterizerState;
+  ID3D11DepthStencilState *DepthState = Base->DepthState;
+  ID3D11BlendState        *BlendState = Base->BlendState; 
+  ID3D11RenderTargetView  *RTView     = Base->RTView;
+  ID3D11DepthStencilView  *DSView     = Base->DSView;
+  
+}
+
+{
+#if 1
+  fn void D3D11TexCubeViewSR(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format)
+  {
+    D3D11_TEXTURE2D_DESC TexDesc = {0};
+    {
+      TexDesc.Width          = TexDim.x;
+      TexDesc.Height         = TexDim.y;
+      TexDesc.MipLevels      = 1;
+      TexDesc.ArraySize      = 6;
+      TexDesc.Format         = Format;
+      TexDesc.Usage          = D3D11_USAGE_DYNAMIC;
+      TexDesc.BindFlags      = D3D11_BIND_UNORDERED_ACCESS;
+      TexDesc.CPUAccessFlags = 0;
+      TexDesc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0};
+    }
+    D3D11_SUBRESOURCE_DATA Initial = {0};
+    {
+      Initial.pSysMem = Data;
+      Initial.SysMemPitch = Stride*TexDim.x;
+    }
+    ID3D11Texture2D *Texture;
+    D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {0};
+    SRVDesc.ViewDimension       = D3D11_SRV_DIMENSION_TEXTURE2D;
+    SRVDesc.Format              = Format;
+    SRVDesc.Texture2D           =  (D3D11_TEXCUBE_SRV){0, 1};
+    ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
+    if(GetTex != NULL) *GetTex = Texture;
+    else ID3D11Texture2D_Release(Texture);
+  }
+#endif
 }

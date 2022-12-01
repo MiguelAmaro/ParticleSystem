@@ -126,20 +126,23 @@ physarum PhysarumInit(d3d11_base *Base)
     AgentsInitial[Agent] = (struct agent){V2f(0.0f,0.0f), V2f(0.0f,0.0f), 0.0f, 0.0f};
   }
   foreach(Float, Result.TexRes.x*Result.TexRes.y, s32) TexInitial[Float] = V4f(0.0, 0.0, 0.0, 0.0);
-  D3D11VertexBuffer(Device, &Result.VBuffer, Data, sizeof(struct vert), 6);
-  //State Views
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexRead,
-                        &Result.SRViewTexRead, &Result.UAViewTexRead,
-                        Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexRender,
-                        &Result.SRViewTexRender, &Result.UAViewTexRender, 
-                        Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DViewUA(Device, &Result.UAViewTexDebug, &Result.TexDebug, Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DViewUA(Device, &Result.UAViewTexWrite, &Result.TexWrite , Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DStage(Device, &Result.TexSwapStage, Result.TexRes, TexInitial, sizeof(v2f), Float_RGBA); // Swap Stage
-  D3D11StructuredBuffer(Device, &Result.Agents, AgentsInitial, sizeof(struct agent), Result.UIState.AgentCount);
-  D3D11BufferViewUA(Device, &Result.UAViewAgents, Result.Agents, Result.UIState.AgentCount);
-  D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(physarum_consts), Usage_Dynamic, Access_Write);
+  D3D11ScopedBase(Base)
+  {
+    D3D11BufferVertex(&Result.VBuffer, Data, sizeof(struct vert), 6);
+    //State Views
+    D3D11Tex2D(&Result.TexRead,
+               &Result.SRViewTexRead, &Result.UAViewTexRead,
+               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2D(&Result.TexRender,
+               &Result.SRViewTexRender, &Result.UAViewTexRender, 
+               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DViewUA(Device, &Result.UAViewTexDebug, &Result.TexDebug, Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DViewUA(Device, &Result.UAViewTexWrite, &Result.TexWrite , Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DStage(&Result.TexSwapStage, Result.TexRes, TexInitial, sizeof(v2f), Float_RGBA); // Swap Stage
+    D3D11BufferStructUA(&Result.Agents, AgentsInitial, sizeof(struct agent), Result.UIState.AgentCount);
+    D3D11BufferViewUA(Device, &Result.UAViewAgents, Result.Agents, Result.UIState.AgentCount);
+    D3D11BufferConstant(&Result.Consts, NULL, sizeof(physarum_consts), Usage_Dynamic, Access_Write);
+  }
   ArenaTempEnd(Temp);
   
   {

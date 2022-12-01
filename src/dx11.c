@@ -1,3 +1,5 @@
+
+// NOTE(MIGUEL): should base fall under graphics settings that the programmer can control with ui
 fn  d3d11_base D3D11InitBase(HWND Window)
 {
   d3d11_base Base = {0};
@@ -167,7 +169,6 @@ fn void D3D11UpdateWindowSize(d3d11_base *Base, v2s WindowDim)
         .Usage = D3D11_USAGE_DEFAULT,
         .BindFlags = D3D11_BIND_DEPTH_STENCIL,
       };
-      
       // create new depth stencil texture & DepthStencil view
       ID3D11Texture2D* Depth;
       ID3D11Device_CreateTexture2D(Base->Device, &depthDesc, NULL, &Depth);
@@ -201,59 +202,126 @@ fn void D3D11GPUMemoryWrite(ID3D11DeviceContext * Context, ID3D11Buffer *GPUBuff
   return;
   
 }
-fn void D3D11StructuredBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count)
+/*// NOTE(MIGUEL): I'm going to attempt to formalize the api.
+*                  I want the api to be organized by objects
+*                  StructuredBuffer
+*                  
+*                  Api functions will used a global ID3D11Device
+*                  They will verify that it does exist
+*                  And skip function and report if it doesnt
+*                  Only data needed to create d3d11 data will be passed ass args
+*                  
+*                  Allow user to set cpu access flags defalt dynamic
+*/
+//~ STATE MGMT
+fn void D3D11SetGlobalBase(d3d11_base *Base)
 {
+  GlobalBase = Base;
+  return;
+}
+fn void D3D11ClearGlobalBase(void)
+{
+  GlobalBase = NULL;
+  return;
+}
+//~ Buffers
+fn void D3D11BufferStructUA(ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count)
+{
+  D3D11ValidateAndDestructBase(GlobalBase);
   D3D11_BUFFER_DESC Desc = {0};
-  Desc.ByteWidth           = Count*Stride;
-  Desc.StructureByteStride = Stride;
-  Desc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-  Desc.BindFlags           = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-  Desc.Usage               = D3D11_USAGE_DEFAULT;
-  Desc.CPUAccessFlags = 0;
+  {
+    Desc.ByteWidth           = Count*Stride;
+    Desc.StructureByteStride = Stride;
+    Desc.MiscFlags           = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+    Desc.BindFlags           = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+    Desc.Usage               = D3D11_USAGE_DEFAULT;
+    Desc.CPUAccessFlags = 0;
+  }
+  D3D11_SUBRESOURCE_DATA Initial;
+  Initial.pSysMem = Data;
+  ID3D11Device_CreateBuffer(Device, &Desc, (Data==NULL)?NULL:&Initial, Buffer);
+  return;
+}
+fn void D3D11BufferVertex(ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count)
+{
+  D3D11ValidateAndDestructBase(GlobalBase);
+  D3D11_BUFFER_DESC Desc = {0};
+  {
+    Desc.ByteWidth = Count*Stride;
+    Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+    Desc.Usage = D3D11_USAGE_DEFAULT;
+  }
   D3D11_SUBRESOURCE_DATA Initial;
   Initial.pSysMem = Data;
   ID3D11Device_CreateBuffer(Device, &Desc, &Initial, Buffer);
   return;
 }
-fn void D3D11VertexBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count)
+fn void D3D11BufferConstant(ID3D11Buffer **Buffer, void *Data, u32 Size, buffer_usage Usage, cpu_access Access)
 {
-  // Normal vertex buffer fed in via the input assembler as point topology
+  D3D11ValidateAndDestructBase(GlobalBase);
   D3D11_BUFFER_DESC Desc = {0};
-  Desc.ByteWidth = Count*Stride;
-  Desc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-  Desc.Usage = D3D11_USAGE_DEFAULT;
-  D3D11_SUBRESOURCE_DATA Initial;
-  Initial.pSysMem = Data;
-  ID3D11Device_CreateBuffer(Device, &Desc, &Initial, Buffer);
-  return;
-}
-fn void D3D11ConstantBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Size, buffer_usage Usage, cpu_access Access)
-{
-  D3D11_BUFFER_DESC Desc = {0};
-  Desc.ByteWidth      = Size;
-  Desc.Usage          = Usage;
-  Desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
-  Desc.CPUAccessFlags = Access;
+  {
+    Desc.ByteWidth      = Size;
+    Desc.Usage          = Usage;
+    Desc.BindFlags      = D3D11_BIND_CONSTANT_BUFFER;
+    Desc.CPUAccessFlags = Access;
+  }
   D3D11_SUBRESOURCE_DATA Initial;
   Initial.pSysMem = Data;
   ID3D11Device_CreateBuffer(Device, &Desc, Data==NULL?NULL:&Initial, Buffer);
   return;
 }
-fn void D3D11StageBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Size)
+fn void D3D11BufferStaging(ID3D11Buffer **Buffer, void *Data, u32 Size)
 {
+  D3D11ValidateAndDestructBase(GlobalBase);
   D3D11_BUFFER_DESC Desc = {0};
-  Desc.ByteWidth      = Size;
-  Desc.BindFlags      = 0; //Staging buffers are not meant to be bound to any stage in the pipeline.
-  Desc.Usage          = D3D11_USAGE_STAGING;
-  Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+  {
+    Desc.ByteWidth      = Size;
+    Desc.BindFlags      = 0;
+    Desc.Usage          = D3D11_USAGE_STAGING;
+    Desc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
+  }
   D3D11_SUBRESOURCE_DATA Initial;
   Initial.pSysMem = Data;
   ID3D11Device_CreateBuffer(Device, &Desc, (Data!=NULL)?&Initial:NULL, Buffer);
   return;
 }
-fn void D3D11Tex2DStage(ID3D11Device* Device, ID3D11Texture2D **Texture, v2s TexDim,
+fn void D3D11BufferArgs(ID3D11Buffer **Buffer, void *Args, u32 Size)
+{
+  D3D11ValidateAndDestructBase(GlobalBase);
+  Assert(Size%4 == 0);
+  D3D11_BUFFER_DESC Desc = {0};
+  Desc.ByteWidth           = Size; //Draw Args are all 32bit variables so size must be a 4byte mutliple.
+  Desc.StructureByteStride = 0;    // No structures just packes 32bit values.
+  Desc.MiscFlags           = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
+  Desc.Usage               = D3D11_USAGE_DEFAULT;
+  Desc.BindFlags           = 0;
+  Desc.CPUAccessFlags      = 0;
+  D3D11_SUBRESOURCE_DATA Initial;
+  Initial.pSysMem = Args;
+  ID3D11Device_CreateBuffer(Device, &Desc, &Initial, Buffer);
+  return;
+}
+fn void *D3D11BufferRead(ID3D11Buffer *TargetBuffer, ID3D11Buffer *StageBuffer, u32 Stride, u32 Count, arena *Arena)
+{
+  D3D11ValidateAndDestructBase(GlobalBase);
+  void *Result = ArenaPushBlock(Arena, Stride*Count);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource*)StageBuffer, (ID3D11Resource*)TargetBuffer);
+  D3D11GPUMemoryRead(Context, StageBuffer, Result, Stride, Count);
+  return Result;
+}
+fn void D3D11BufferWrite(ID3D11Buffer *TargetBuffer, ID3D11Buffer *StageBuffer, void *Data, u32 Stride, u32 Count)
+{
+  D3D11ValidateAndDestructBase(GlobalBase);
+  D3D11GPUMemoryWrite(Context, StageBuffer, Data, Stride, Count);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource*)TargetBuffer, (ID3D11Resource*)StageBuffer);
+  return;
+}
+//~
+fn void D3D11Tex2DStage(ID3D11Texture2D **Texture, v2s TexDim,
                         void *Data, u32 Stride, tex_format Format)
 {
+  D3D11ValidateAndDestructBase(GlobalBase);
   D3D11_TEXTURE2D_DESC Desc = {0};
   Desc.Width          = TexDim.x;
   Desc.Height         = TexDim.y;
@@ -267,7 +335,7 @@ fn void D3D11Tex2DStage(ID3D11Device* Device, ID3D11Texture2D **Texture, v2s Tex
   D3D11_SUBRESOURCE_DATA Initial = {0};
   Initial.pSysMem = Data;
   Initial.SysMemPitch = Stride*TexDim.x;
-  ID3D11Device_CreateTexture2D(Device, &Desc, &Initial, Texture);
+  ID3D11Device_CreateTexture2D(Device, &Desc, Data==NULL?NULL:&Initial, Texture);
   return;
 }
 fn void D3D11BufferViewSR(ID3D11Device* Device, ID3D11ShaderResourceView  **SRV, ID3D11Buffer *Buffer, u32 Count)
@@ -278,21 +346,6 @@ fn void D3D11BufferViewSR(ID3D11Device* Device, ID3D11ShaderResourceView  **SRV,
   Desc.Buffer.FirstElement = 0;
   Desc.Buffer.NumElements  = Count;
   ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Buffer, &Desc, SRV);
-  return;
-}
-fn void D3D11ArgsBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Args, u32 Size)
-{
-  Assert(Size%4 == 0);
-  D3D11_BUFFER_DESC Desc = {0};
-  Desc.ByteWidth           = Size; //Draw Args are all 32bit variables so size must be a 4byte mutliple.
-  Desc.StructureByteStride = 0;    // No structures just packes 32bit values.
-  Desc.MiscFlags           = D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
-  Desc.Usage               = D3D11_USAGE_DEFAULT;
-  Desc.BindFlags           = 0;
-  Desc.CPUAccessFlags      = 0;
-  D3D11_SUBRESOURCE_DATA Initial;
-  Initial.pSysMem = Args;
-  ID3D11Device_CreateBuffer(Device, &Desc, &Initial, Buffer);
   return;
 }
 fn void D3D11BufferViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Buffer *Buffer, u32 Count )
@@ -351,36 +404,6 @@ fn void D3D11Tex2DViewSR(ID3D11Device* Device, ID3D11ShaderResourceView **SRV, I
   else ID3D11Texture2D_Release(Texture);
   return;
 }
-#if 0
-fn void D3D11TexCubeViewSR(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format)
-{
-  D3D11_TEXTURE2D_DESC TexDesc = {0};
-  {
-    TexDesc.Width          = TexDim.x;
-    TexDesc.Height         = TexDim.y;
-    TexDesc.MipLevels      = 1;
-    TexDesc.ArraySize      = 6;
-    TexDesc.Format         = Format;
-    TexDesc.Usage          = D3D11_USAGE_DEFAULT;
-    TexDesc.BindFlags      = D3D11_BIND_UNORDERED_ACCESS;
-    TexDesc.CPUAccessFlags = 0;
-    TexDesc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0};
-  }
-  D3D11_SUBRESOURCE_DATA Initial = {0};
-  {
-    Initial.pSysMem = Data;
-    Initial.SysMemPitch = Stride*TexDim.x;
-  }
-  ID3D11Texture2D *Texture;
-  D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {0};
-  SRVDesc.ViewDimension       = D3D11_SRV_DIMENSION_TEXTURE2D;
-  SRVDesc.Format              = Format;
-  SRVDesc.Texture2D           =  (D3D11_TEXCUBE_SRV){0, 1};
-  ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
-  if(GetTex != NULL) *GetTex = Texture;
-  else ID3D11Texture2D_Release(Texture);
-}
-#endif
 fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format)
 {
   D3D11_TEXTURE2D_DESC TexDesc = {0};
@@ -401,7 +424,7 @@ fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, 
     Initial.SysMemPitch = Stride*TexDim.x;
   }
   ID3D11Texture2D *Texture;
-  ID3D11Device_CreateTexture2D(Device, &TexDesc, Data==NULL?NULL:&Initial, &Texture);
+  ID3D11Device_CreateTexture2D(Device, &TexDesc, Data!=NULL?&Initial:NULL, &Texture);
   D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {0};
   {
     UAVDesc.ViewDimension       = D3D11_UAV_DIMENSION_TEXTURE2D;
@@ -413,38 +436,112 @@ fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, 
   else ID3D11Texture2D_Release(Texture);
   return;
 }
-fn void D3D11Tex2DViewSRAndUA(ID3D11Device* Device, ID3D11Texture2D **GetTex,
-                              ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, 
-                              v2s TexDim, void *Data, u32 Stride, tex_format Format)
+/*// NOTE(MIGUEL): I just want one function that takes a pointer UAV and SRV and Tex and the function will
+*                  will check which of the those pointers are null to understand what to give back to the caller
+*                  so now itll be one funciont that that can give back anything tex, whatever view instead 
+*                  of multiple functions for diffent views.
+*/
+fn void D3D11Tex2D(ID3D11Texture2D **GetTex,
+                   ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, 
+                   v2s TexDim, void *Data, u32 Stride, tex_format Format)
 {
+  D3D11ValidateAndDestructBase(GlobalBase);
   D3D11_TEXTURE2D_DESC TexDesc = {0};
-  TexDesc.Width          = TexDim.x;
-  TexDesc.Height         = TexDim.y;
-  TexDesc.MipLevels      = 1;
-  TexDesc.ArraySize      = 1;
-  TexDesc.Format         = Format;
-  TexDesc.Usage          = D3D11_USAGE_DEFAULT;
-  TexDesc.BindFlags      = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-  TexDesc.CPUAccessFlags = 0;
-  TexDesc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0};
+  {
+    TexDesc.Width          = TexDim.x;
+    TexDesc.Height         = TexDim.y;
+    TexDesc.MipLevels      = 1;
+    TexDesc.ArraySize      = 1;
+    TexDesc.Format         = Format;
+    TexDesc.Usage          = D3D11_USAGE_DEFAULT;
+    TexDesc.BindFlags      = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+    TexDesc.CPUAccessFlags = 0;
+    TexDesc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0};
+  }
   D3D11_SUBRESOURCE_DATA Initial = {0};
-  Initial.pSysMem = Data;
-  Initial.SysMemPitch = Stride*TexDim.x;
+  {
+    Initial.pSysMem = Data;
+    Initial.SysMemPitch = Stride*TexDim.x;
+  }
   ID3D11Texture2D *Texture;
-  ID3D11Device_CreateTexture2D(Device, &TexDesc, &Initial, &Texture);
-  D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {0};
-  SRVDesc.ViewDimension       = D3D11_SRV_DIMENSION_TEXTURE2D;
-  SRVDesc.Format              = Format;
-  SRVDesc.Texture2D           =  (D3D11_TEX2D_SRV){0, 1};
-  D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {0};
-  UAVDesc.ViewDimension       = D3D11_UAV_DIMENSION_TEXTURE2D;
-  UAVDesc.Format              = Format;
-  UAVDesc.Texture2D           = (D3D11_TEX2D_UAV){0};
-  ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
-  ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Texture, &UAVDesc, UAV);
+  ID3D11Device_CreateTexture2D(Device, &TexDesc, (Data!=NULL)?&Initial:NULL, &Texture);
+  if(SRV != NULL)
+  {
+    D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {0};
+    SRVDesc.ViewDimension       = D3D11_SRV_DIMENSION_TEXTURE2D;
+    SRVDesc.Format              = Format;
+    SRVDesc.Texture2D           =  (D3D11_TEX2D_SRV){0, 1};
+    ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
+  }
+  if(UAV != NULL)
+  {
+    D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {0};
+    UAVDesc.ViewDimension       = D3D11_UAV_DIMENSION_TEXTURE2D;
+    UAVDesc.Format              = Format;
+    UAVDesc.Texture2D           = (D3D11_TEX2D_UAV){0};
+    ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Texture, &UAVDesc, UAV);
+  }
   if(GetTex != NULL) *GetTex = Texture;
   else ID3D11Texture2D_Release(Texture);
 }
+fn void D3D11Tex2DCube(ID3D11Texture2D **GetTex,
+                       ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, 
+                       v2s TexDim, void **Data, u32 Stride, tex_format Format, buffer_usage Usage)
+{
+  D3D11ValidateAndDestructBase(GlobalBase);
+  D3D11_TEXTURE2D_DESC TexDesc = {0};
+  {
+    TexDesc.Width          = TexDim.x;
+    TexDesc.Height         = TexDim.y;
+    TexDesc.MipLevels      = 1;
+    TexDesc.ArraySize      = 6;
+    TexDesc.Format         = Format;
+    TexDesc.Usage          = Usage;
+    TexDesc.BindFlags      = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+    TexDesc.CPUAccessFlags = 0;
+    TexDesc.SampleDesc     = (DXGI_SAMPLE_DESC){1, 0};
+    TexDesc.MiscFlags      = D3D11_RESOURCE_MISC_TEXTURECUBE;
+  }
+  D3D11_SUBRESOURCE_DATA Initial[6] = {0};
+  if(Data!=NULL)
+  {
+    foreach(FaceId, 6, s32)
+    {
+      Initial[FaceId].pSysMem = Data[FaceId];
+      Initial[FaceId].SysMemPitch = Stride*TexDim.x;
+    }
+  }
+  ID3D11Texture2D *Texture;
+  ID3D11Device_CreateTexture2D(Device, &TexDesc, (Data!=NULL)?&Initial[0]:NULL, &Texture);
+  if(SRV != NULL)
+  {
+    D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc = {0};
+    SRVDesc.ViewDimension       = D3D11_SRV_DIMENSION_TEXTURECUBE;
+    SRVDesc.Format              = Format;
+    SRVDesc.TextureCube           =  (D3D11_TEXCUBE_SRV){0, 1};
+    ID3D11Device_CreateShaderResourceView(Device, (ID3D11Resource*)Texture, &SRVDesc, SRV);
+  }
+  if(UAV != NULL)
+  {
+    D3D11_UNORDERED_ACCESS_VIEW_DESC UAVDesc = {0};
+    Assert(!"Texture UAV Not suppoerted!");
+    //UAVDesc.ViewDimension       = D3D11_UAV_DIMENSION_TEXTURECUBE;
+    //UAVDesc.Format              = Format;
+    //UAVDesc.TextureCube           = (D3D11_TEXCUBE_UAV){0};
+    //ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Texture, &UAVDesc, UAV);
+  }
+  if(GetTex != NULL) *GetTex = Texture;
+  else ID3D11Texture2D_Release(Texture);
+}
+fn void D3D11Tex2DSwap(ID3D11DeviceContext *Context, ID3D11Texture2D **TexA, ID3D11Texture2D **TexB, ID3D11Texture2D *Stage)
+{
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)Stage, (ID3D11Resource *)*TexA);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)*TexA, (ID3D11Resource *)*TexB);
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)*TexB, (ID3D11Resource *)Stage);
+  return;
+}
+//~ SHADER LOADING & CREATION
+// TODO(MIGUEL): This whole section needs testing.
 // TODO(MIGUEL): copy the ErrorMsg to a str8 CompilerMsg, arena Arena and display in  imgui 
 fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry,
                                        const char *ShaderTypeAndVer, const char *CallerName)
@@ -841,16 +938,25 @@ fn void D3D11ClearComputeStage(ID3D11DeviceContext *Context)
   ID3D11UnorderedAccessView *NullUAV[1]     = {NULL};
   ID3D11Buffer              *NullBuffer[1]  = {NULL};
   // Compute Shader
+  //UAV
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 0, 1, NullUAV, 0);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 1, 1, NullUAV, 0);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 2, 1, NullUAV, 0);
   ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 3, 1, NullUAV, 0);
+  ID3D11DeviceContext_CSSetUnorderedAccessViews(Context, 4, 1, NullUAV, 0);
+  //SRV
   ID3D11DeviceContext_CSSetShaderResources     (Context, 0, 1, NullSRV);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 1, 1, NullSRV);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 2, 1, NullSRV);
   ID3D11DeviceContext_CSSetShaderResources     (Context, 3, 1, NullSRV);
+  ID3D11DeviceContext_CSSetShaderResources     (Context, 4, 1, NullSRV);
+  //Samplers
   ID3D11DeviceContext_CSSetSamplers            (Context, 0, 1, NullSampler);
   ID3D11DeviceContext_CSSetSamplers            (Context, 1, 1, NullSampler);
+  ID3D11DeviceContext_CSSetSamplers            (Context, 2, 1, NullSampler);
+  ID3D11DeviceContext_CSSetSamplers            (Context, 3, 1, NullSampler);
+  ID3D11DeviceContext_CSSetSamplers            (Context, 4, 1, NullSampler);
+  //CB
   ID3D11DeviceContext_CSSetConstantBuffers     (Context, 0, 1, NullBuffer);
   ID3D11DeviceContext_CSSetConstantBuffers     (Context, 1, 1, NullBuffer);
   ID3D11DeviceContext_CSSetShader              (Context, NullCShader, NULL, 0);
@@ -884,36 +990,15 @@ fn void D3D11ClearPipeline(ID3D11DeviceContext *Context)
   // Pixel Shader
   ID3D11DeviceContext_PSSetConstantBuffers     (Context, 0, 1, NullBuffer);
   ID3D11DeviceContext_PSSetSamplers            (Context, 0, 1, NullSampler);
+  ID3D11DeviceContext_PSSetSamplers            (Context, 1, 1, NullSampler);
+  ID3D11DeviceContext_PSSetSamplers            (Context, 2, 1, NullSampler);
+  ID3D11DeviceContext_PSSetSamplers            (Context, 3, 1, NullSampler);
+  ID3D11DeviceContext_PSSetSamplers            (Context, 4, 1, NullSampler);
   ID3D11DeviceContext_PSSetShaderResources     (Context, 0, 1, NullSRV);
   ID3D11DeviceContext_PSSetShaderResources     (Context, 1, 1, NullSRV);
+  ID3D11DeviceContext_PSSetShaderResources     (Context, 2, 1, NullSRV);
+  ID3D11DeviceContext_PSSetShaderResources     (Context, 3, 1, NullSRV);
+  ID3D11DeviceContext_PSSetShaderResources     (Context, 4, 1, NullSRV);
   ID3D11DeviceContext_PSSetShader              (Context, NullPShader, NULL, 0);
-  return;
-}
-fn void *D3D11ReadBuffer(ID3D11DeviceContext *Context, ID3D11Buffer *TargetBuffer, ID3D11Buffer *StageBuffer, u32 Stride, u32 Count, arena *Arena)
-{
-  void *Result = ArenaPushBlock(Arena, Stride*Count);
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource*)StageBuffer, (ID3D11Resource*)TargetBuffer);
-  D3D11GPUMemoryRead(Context, StageBuffer, Result, Stride, Count);
-  return Result;
-}
-fn void D3D11WriteBuffer(ID3D11DeviceContext *Context, ID3D11Buffer *TargetBuffer, ID3D11Buffer *StageBuffer, void *Data, u32 Stride, u32 Count)
-{
-  D3D11GPUMemoryWrite(Context, StageBuffer, Data, Stride, Count);
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource*)TargetBuffer, (ID3D11Resource*)StageBuffer);
-  return;
-}
-fn void D3D11Tex2DSwap(ID3D11DeviceContext *Context, ID3D11Texture2D **TexA, ID3D11Texture2D **TexB, ID3D11Texture2D *Stage)
-{
-#if 1
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)Stage, (ID3D11Resource *)*TexA);
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)*TexA, (ID3D11Resource *)*TexB);
-  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)*TexB, (ID3D11Resource *)Stage);
-#else
-  // NOTE(MIGUEL): Think doing this when these handles are associated with srv's is bad.
-  //               
-  ID3D11Texture2D *Temp = *TexA;
-  *TexA = *TexB;
-  *TexB = Temp;
-#endif
   return;
 }

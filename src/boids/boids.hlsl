@@ -16,6 +16,8 @@ cbuffer cbuffer0 : register(b0)
   float UApplyAlignment;
   float UApplyCohesion;
   float UApplySeperation;
+  float UMaxForce;
+  float UMaxSpeed;
   uint  UTime; //UFrameCount;
 };
 struct agent
@@ -150,6 +152,7 @@ float2 Alignment(agent Agent, uint AgentId)
 {
   float2 Steer = 0.0;
   uint   NeighborCount = 0;
+  float AlignFactor = UApplyAlignment;
   float2 AlignmentAvg  = 0.0;
   for(uint NeighborId=0; NeighborId<UAgentCount; NeighborId++)
   {
@@ -167,7 +170,7 @@ float2 Alignment(agent Agent, uint AgentId)
   if(NeighborCount>0)
   {
     AlignmentAvg /= (float)NeighborCount;
-    Steer = Limit(AlignmentAvg, Agent.MaxForce);
+    Steer = Limit(AlignmentAvg, UMaxForce*Agent.MaxForce*AlignFactor);
   }
   return Steer;
 }
@@ -175,7 +178,7 @@ float2 Cohesion(agent Agent, uint AgentId)
 {
   float2 Steer  = 0.0;
   float2 PosAvg = 0.0;
-  float CohesionFactor = 0.3;
+  float CohesionFactor = UApplyCohesion;
   uint   NeighborCount = 0;
   for(uint NeighborId=0; NeighborId<UAgentCount; NeighborId++)
   {
@@ -193,7 +196,7 @@ float2 Cohesion(agent Agent, uint AgentId)
   {
     PosAvg /= (float)NeighborCount;
     float2 Target = PosAvg-Agent.Pos;
-    Steer = Limit(Target, Agent.MaxForce*CohesionFactor );
+    Steer = Limit(Target, UMaxForce*Agent.MaxForce*CohesionFactor );
   }
   return Steer;
 }
@@ -201,7 +204,7 @@ float2 Seperation(agent Agent, uint AgentId)
 {
   float2 Steer = 0.0;
   float2 AvoidDir = 0.0;
-  float AvoidFactor = 1.0;
+  float AvoidFactor = UApplySeperation;
   float SafeDist = 10.0;
   for(uint NeighborId=0; NeighborId<UAgentCount; NeighborId++)
   {
@@ -215,7 +218,7 @@ float2 Seperation(agent Agent, uint AgentId)
       AvoidDir += Agent.Pos-Neighbor.Pos; 
     }
   }
-  Steer = Limit(AvoidDir, Agent.MaxForce*AvoidFactor);
+  Steer = Limit(AvoidDir, UMaxForce*Agent.MaxForce*AvoidFactor);
   return Steer;
 }
 float sdBox( in float2 p, in float2 b )
@@ -233,10 +236,11 @@ void KernelAgentsReset(uint3 id : SV_DispatchThreadID)
   float  InitialSpeed = 3.0;
   float  InitialForce = 1.2;
   float2 InitialDir   = RandomDirection(id.xx*0.1 + sin(UTime));
-  Agent.Pos = floor(rand22(id.x*0.0001 + UTime*0.001)*10.0);//*UTexRes; // NOTE(MIGUEL): DEBUGGING KD
+  Agent.Pos = floor(rand22(id.x*0.0001 + UTime*0.001)*UTexRes); // NOTE(MIGUEL): DEBUGGING KD
   Agent.Vel = InitialDir*InitialSpeed;
-  Agent.MaxSpeed = InitialSpeed;
-  Agent.MaxForce = InitialForce;
+  float2 FS = rand22(id.x*0.0001 + UTime*0.001);
+  Agent.MaxSpeed = FS.x;
+  Agent.MaxForce = FS.y;
   Agents[AgentId] = Agent;
 }
 [numthreads(AGENTS_PER_THREADGROUP, 1, 1)]
@@ -256,17 +260,17 @@ void KernelAgentsMove(uint3 id : SV_DispatchThreadID)
   */
   float dt = 1.0;
   DrawAgentSearchRange(Agent, id.x);
-  float2 A = Alignment (Agent, AgentId)*UApplyAlignment;
-  float2 C = Cohesion  (Agent, AgentId)*UApplyCohesion;
-  float2 S = Seperation(Agent, AgentId)*UApplySeperation;
+  float2 A = Alignment (Agent, AgentId);
+  float2 C = Cohesion  (Agent, AgentId);
+  float2 S = Seperation(Agent, AgentId);
   float2 Wander = SimpleTurns(Agent, id);
   float2 RawVel = (A+C+S)+Wander;
-  float2 NewVel = Limit(RawVel, Agent.MaxSpeed);
+  float2 NewVel = Limit(RawVel, Agent.MaxSpeed*UMaxSpeed);
   float2 NewPos = ToroidalWrap(Agent.Pos+NewVel);
   Agent.Vel = NewVel;
   Agent.Pos = NewPos;
-  Agent.MaxSpeed = 3.0;
-  Agent.MaxForce = 1.2;
+  //Agent.MaxSpeed = UMaxSpeed;
+  //Agent.MaxForce = UMaxForce;
   Agents[AgentId] = Agent;
   return;
 }
@@ -350,7 +354,7 @@ struct PS_INPUT
 {                                                          
   float4 Pos   : SV_POSITION; // This is required to be float4 cause is a D311 SysValue
   float3 UV    : TEXCOORD;                                 
-};                                                         
+};
 
 PS_INPUT VSMain(VS_INPUT Input, uint VertID : SV_VertexID)
 {

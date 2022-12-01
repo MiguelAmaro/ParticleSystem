@@ -436,6 +436,8 @@ M4fOrtho(f32 LeftPlane,
 }
 
 ///EXTRA
+#include "pcg64.h"
+pcg64 _RandGen = {0};
 inline s32 RoundF32toS32(f32 a)
 {
   s32 Result = (s32)(a + 0.5f);
@@ -446,9 +448,14 @@ inline u32 RoundF32toU32(f32 a)
   u32 Result = (u32)(a + 0.5f);
   return Result;
 }
+u64 RandRange(u64 Low, u64 High)
+{
+  u64 Result = pcg64_range(&_RandGen, Low, High);
+  return Result;
+}
 f32 RandUniLat(void)
 {
-  f32 Result = (f32)rand()/(f32)RAND_MAX;
+  f32 Result = pcg64_nextf(&_RandGen);
   return Result;
 }
 f32 RandBiLat(void)

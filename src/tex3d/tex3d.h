@@ -94,25 +94,28 @@ tex3d Tex3dInit(d3d11_base *Base)
     { { -1.0f,  1.0f, 0.0f }, {  0.0f,  1.0f, 0.0f } },
   };
   arena_temp Temp = ArenaTempBegin(&Result.Arena);
-  v2f*StateInitial = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, v2f);
+  v2f *StateInitial = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, v2f);
   v4f *TexelInitial = ArenaPushArray(Temp.Arena, Result.TexRes.x*Result.TexRes.y, v4f);
   foreach(Elm, Result.TexRes.x*Result.TexRes.y, s32)
   {
     StateInitial[Elm] = V2f(0.0, 0.0);
     TexelInitial[Elm] = V4f(0.0, 0.0, 0.0, 0.0);
   }
-  D3D11VertexBuffer(Device, &Result.VBuffer, Data, sizeof(struct vert), 6);
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexRead,
-                        &Result.SRViewTexRead, &Result.UAViewTexRead,
-                        Result.TexRes, StateInitial, sizeof(v2f), Float_RG);
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexWrite,
-                        &Result.SRViewTexWrite, &Result.UAViewTexWrite,
-                        Result.TexRes, StateInitial, sizeof(v2f), Float_RG);
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexRender,
-                        &Result.SRViewTexRender, &Result.UAViewTexRender,
-                        Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DStage(Device, &Result.TexSwapStage, Result.TexRes, StateInitial, sizeof(v2f), Float_RG); // Swap Stage
-  D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(tex3d_consts), Usage_Dynamic, Access_Write);
+  D3D11ScopedBase(Base)
+  {
+    D3D11BufferVertex(&Result.VBuffer, Data, sizeof(struct vert), 6);
+    D3D11Tex2D(&Result.TexRead,
+               &Result.SRViewTexRead, &Result.UAViewTexRead,
+               Result.TexRes, StateInitial, sizeof(v2f), Float_RG);
+    D3D11Tex2D(&Result.TexWrite,
+               &Result.SRViewTexWrite, &Result.UAViewTexWrite,
+               Result.TexRes, StateInitial, sizeof(v2f), Float_RG);
+    D3D11Tex2D(&Result.TexRender,
+               &Result.SRViewTexRender, &Result.UAViewTexRender,
+               Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DStage(&Result.TexSwapStage, Result.TexRes, StateInitial, sizeof(v2f), Float_RG); // Swap Stage
+    D3D11BufferConstant(&Result.Consts, NULL, sizeof(tex3d_consts), Usage_Dynamic, Access_Write);
+  }
   
   ArenaTempEnd(Temp);
   {

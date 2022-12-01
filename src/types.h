@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <float.h>
 
+#undef NULL
+#define NULL 0
 #define struct16 __declspec(align(16)) struct
 #define local_persist static
 #define global

@@ -30,6 +30,23 @@ fn void UIReactDiffuseSection(ui_state *State)
   if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
   return;
 }
+fn void UIEocSection(ui_state *State)
+{
+  eoc_ui *Req = &State->EocReq;
+  igSliderInt("Resolution", (s32 *)&Req->TexRes,EOC_TEX_MIN_RES, EOC_TEX_MAX_RES , NULL, 0);
+  igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
+  igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
+  igSliderFloat("Lambda", (f32 *)&Req->Lambda, 0.0, 1.0, NULL, 0);
+  igSliderInt("State Count", (s32 *)&Req->StateCount, 1, EOC_STATE_MAX_COUNT, NULL, 0);
+  
+  
+  igCheckbox("Auto Step", (bool *)&Req->AutoStep);
+  Req->DoStep  = false;
+  Req->DoReset = false;
+  if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
+  if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
+  return;
+}
 fn void UICcaSection(ui_state *State)
 {
   cca_ui *Req = &State->CcaReq;
@@ -58,9 +75,14 @@ fn void UIBoidsSection(ui_state *State)
   igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, BOIDS_MAX_AGENTCOUNT, NULL, 0);
   igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 100, NULL, 0);
   igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, 0.0, 1.0, NULL, 0);
-  igCheckbox("Alignment", (bool *)&Req->ApplyAlignment);      // Edit bools storing our window open/close state
-  igCheckbox("Cohesion", (bool *)&Req->ApplyCohesion);      // Edit bools storing our window open/close state
-  igCheckbox("Seperation", (bool *)&Req->ApplySeperation);      // Edit bools storing our window open/close state
+  
+  igSliderFloat("Max Force", (f32 *)&Req->MaxForce, 0.0, 5.0, NULL, 0);
+  igSliderFloat("Max Speed", (f32 *)&Req->MaxSpeed, 0.0, 5.0, NULL, 0);
+  
+  igSliderFloat("AlignmentFactor", (f32 *)&Req->AlignmentFactor, 0.0, 5.0, NULL, 0);
+  igSliderFloat("CohesionFactor", (f32 *)&Req->CohesionFactor, 0.0, 5.0, NULL, 0);
+  igSliderFloat("SeperationFactor", (f32 *)&Req->SeperationFactor, 0.0, 5.0, NULL, 0);
+  
   igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
   if(igButton("Step", *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
   if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
@@ -101,6 +123,7 @@ fn void UIControlCluster(ui_state *State)
     case SysKind_Boids:UIBoidsSection(State); break;
     case SysKind_Physarum:UIPhysarumSection(State); break;
     case SysKind_ReactDiffuse:UIReactDiffuseSection(State); break;
+    case SysKind_Eoc:UIEocSection(State); break;
     default: ConsoleLog("No UI avilable for this sys!\n");
   }
   igEnd();

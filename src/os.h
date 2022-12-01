@@ -231,6 +231,49 @@ static LRESULT CALLBACK WindowEventProc(HWND wnd, UINT msg, WPARAM wparam, LPARA
   }
   return DefWindowProcW(wnd, msg, wparam, lparam);
 }
+fn void OSLogLastSysError(u32 *ErrorCode)
+{
+  LPTSTR Message;
+  u32 Code = ErrorCode?(*ErrorCode):GetLastError();
+  u32 MessageLen = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER |
+                                  FORMAT_MESSAGE_FROM_SYSTEM,
+                                  NULL,
+                                  Code,
+                                  MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                                  (char *)&Message, 0, NULL);
+  arena Scratch;
+  ArenaLocalInit(Scratch, 1024);
+  ConsoleLog(Scratch, "hello: %hs", Message);
+  //OutputDebugStringA(Message);
+  //MessageBox(0, Message, "Warning", MB_OK);
+  LocalFree(Message);
+  return;
+}
+HCRYPTPROV Provider = 0;
+fn void OSEntropyInit(void)
+{
+  CryptAcquireContextA(&Provider, 0, 0, PROV_RSA_AES, CRYPT_VERIFYCONTEXT);
+  return;
+}
+fn void OSEntropyRelease(void)
+{
+  CryptReleaseContext(Provider, 0);
+  return;
+}
+fn void OSGenEntropy(void *Data, u64 Size, u64 Seed)
+{
+  if(Provider == 0)
+  {
+    if(!CryptGenRandom(Provider, (u32)Size, (BYTE *)Data))
+    {
+      arena Scratch; ArenaLocalInit(Scratch, 1024);
+      OSLogLastSysError(NULL);
+      ConsoleLog(Scratch, "Gen Failed\n");
+    }
+  }
+  //CryptReleaseContext(Provider, 0);
+  return;
+}
 fn HWND OSWindowCreate(HINSTANCE Instance, v2s WindowDim)
 {
   // register window class to have custom WindowProc callback

@@ -12,6 +12,17 @@ struct boids_agent
   float  MaxSpeed;
   float  MaxForce;
 };
+
+/*
+A modificatio to the shaders uniform/constants means:
+for each changed var
+1.changing it in the shader
+2.changing the init UI Init code 
+3.changing the Dearim gui interface
+4.changint the IMgui interface struct 
+5.changint the d3d11 const buffer
+6.changing the asignment for uistate to const buffer vars
+*/
 typedef struct boids_consts boids_consts;
 struct16 boids_consts
 {
@@ -21,9 +32,11 @@ struct16 boids_consts
   u32 UStepCount;
   f32 USearchRange;
   f32 UFieldOfView;
-  f32 UApplyAlignment;
-  f32 UApplyCohesion;
-  f32 UApplySeperation;
+  f32 UAlignmentFactor;
+  f32 UCohesionFactor;
+  f32 USeperationFactor;
+  f32 UMaxForce;
+  f32 UMaxSpeed;
   u32 UFrameCount;
 };
 typedef struct boids_ui boids_ui;
@@ -39,9 +52,11 @@ struct boids_ui
   u32 AgentCount;
   s32 SearchRange;
   f32 FieldOfView;
-  b32 ApplyAlignment;
-  b32 ApplyCohesion;
-  b32 ApplySeperation;
+  f32 AlignmentFactor;
+  f32 CohesionFactor;
+  f32 SeperationFactor;
+  f32 MaxForce;
+  f32 MaxSpeed;
 };
 #define BOIDS_AGENTS_PER_THREADGROUP 64
 #define BOIDS_PIXELS_PER_THREADGROUP 32
@@ -92,9 +107,12 @@ boids_ui BoidsUIStateInit(void)
     .StepMod = 1,
     .Res = BOIDS_MAX_TEX_RES/2,
     .AutoStep = 1,
-    .ApplyAlignment = 1,
-    .ApplySeperation = 1,
-    .ApplyCohesion = 1,
+    .MaxSpeed = 0.5,
+    .MaxForce = 0.5,
+    //range[0.0, 5.0]
+    .AlignmentFactor = 1.0f,
+    .SeperationFactor = 1.0f,
+    .CohesionFactor = 1.0f,
     .AgentCount = 20000,
     .SearchRange = 4,
     .FieldOfView = 0.5,
@@ -131,21 +149,25 @@ boids BoidsInit(d3d11_base *Base)
     AgentsInitial[Agent] = (boids_agent){V2f(0.0f,0.0f), V2f(0.0f,0.0f), 0.0f, 0.0f};
   }
   foreach(Float, Result.TexRes.x*Result.TexRes.y, s32) TexInitial[Float] = V4f(0.0, 0.0, 0.0, 0.0);
-  D3D11VertexBuffer(Device, &Result.VBuffer, Data, sizeof(struct vert), 6);
-  //State Views
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexRead,
-                        &Result.SRViewTexRead, &Result.UAViewTexRead,
-                        Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexRender,
-                        &Result.SRViewTexRender, &Result.UAViewTexRender, 
-                        Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DViewUA(Device, &Result.UAViewTexDebug, &Result.TexDebug, Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DViewUA(Device, &Result.UAViewTexWrite, &Result.TexWrite , Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DStage(Device, &Result.TexSwapStage, Result.TexRes, TexInitial, sizeof(v2f), Float_RGBA); // Swap Stage
-  D3D11StructuredBuffer(Device, &Result.Agents, AgentsInitial, sizeof(boids_agent), Result.UIState.AgentCount);
-  D3D11BufferViewUA(Device, &Result.UAViewAgents, Result.Agents, Result.UIState.AgentCount);
-  D3D11StageBuffer(Device, &Result.AgentsStage, NULL, Result.UIState.AgentCount*sizeof(boids_agent));
-  D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(boids_consts), Usage_Dynamic, Access_Write);
+  
+  D3D11ScopedBase(Base)
+  {
+    D3D11BufferVertex(&Result.VBuffer, Data, sizeof(struct vert), 6);
+    //State Views
+    D3D11Tex2D(&Result.TexRead,
+               &Result.SRViewTexRead, &Result.UAViewTexRead,
+               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2D(&Result.TexRender,
+               &Result.SRViewTexRender, &Result.UAViewTexRender, 
+               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DViewUA(Device, &Result.UAViewTexDebug, &Result.TexDebug, Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DViewUA(Device, &Result.UAViewTexWrite, &Result.TexWrite , Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DStage(&Result.TexSwapStage, Result.TexRes, TexInitial, sizeof(v2f), Float_RGBA); // Swap Stage
+    D3D11BufferStructUA(&Result.Agents, AgentsInitial, sizeof(boids_agent), Result.UIState.AgentCount);
+    D3D11BufferViewUA(Device, &Result.UAViewAgents, Result.Agents, Result.UIState.AgentCount);
+    D3D11BufferStaging(&Result.AgentsStage, NULL, Result.UIState.AgentCount*sizeof(boids_agent));
+    D3D11BufferConstant(&Result.Consts, NULL, sizeof(boids_consts), Usage_Dynamic, Access_Write);
+  }
   MemoryReleaseScratch(Scratch);
   
   {
@@ -157,7 +179,6 @@ boids BoidsInit(d3d11_base *Base)
     ID3D11Device_CreateSamplerState(Device, &Desc, &Result.TexReadSampler);
     ID3D11Device_CreateSamplerState(Device, &Desc, &Result.TexRenderSampler);
   }
-  
   D3D11_INPUT_ELEMENT_DESC Desc[] =
   {
     { "IAPOS"     , 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(struct vert, Pos     ), D3D11_INPUT_PER_VERTEX_DATA, 0 },
@@ -313,9 +334,11 @@ fn void BoidsDraw(boids *Boids, d3d11_base *Base, boids_ui UIReq, u64 FrameCount
     .UStepCount = StepCount,
     .USearchRange = (f32)UIReq.SearchRange,
     .UFieldOfView = -1.0f+2.0f*UIReq.FieldOfView,
-    .UApplyAlignment = (f32)UIReq.ApplyAlignment,
-    .UApplyCohesion = (f32)UIReq.ApplyCohesion,
-    .UApplySeperation = (f32)UIReq.ApplySeperation,
+    .UMaxSpeed = UIReq.MaxSpeed,
+    .UMaxForce = UIReq.MaxForce,
+    .UAlignmentFactor = UIReq.AlignmentFactor,
+    .UCohesionFactor = UIReq.CohesionFactor,
+    .USeperationFactor = UIReq.SeperationFactor,
     .UFrameCount = (u32)FrameCount,
   };
 #if 0

@@ -17,6 +17,7 @@ cbuffer cbuffer0 : register(b0)
 Texture2D  <float2> TexRead   : register( t0 );
 RWTexture2D<float2> TexWrite  : register( u0 );
 RWTexture2D<float4>TexRender : register( u1 );
+RWTexture2D<float4>TexBump : register( u1 );
 
 
 //~ FUNCTIONS
@@ -131,9 +132,9 @@ void KernelChemReset(uint3 id : SV_DispatchThreadID)
   float2 Seed = rand22(id.xy+UFrameCount);
   
   //TEXTURES
-  float ring = smoothstep(0.01, 0.0, abs(length(st)-0.4)-0.01);
-  float box = sdBox(st, float2(0.4,0.4));
-  float2 Result = float2(0.8, UBufferInit*(ring+box));
+  float ring = smoothstep(0.1, 0.0, abs(length(st)-0.8)-0.0001);
+  float box = smoothstep(0.1, 0.0, sdBox(st, float2(0.4,0.4)));
+  float2 Result = float2(1.0, max(box,ring));
   TexWrite[id.xy] = Result;
   return;
 }
@@ -149,9 +150,36 @@ void KernelChemReactDiffuse(uint3 id : SV_DispatchThreadID)
   float DiffRateA = 1.0;
   float DiffRateB = 0.5;
   //https://www.karlsims.com/rdtool.html?s=0Nwog
-  float FeedRate = 0.01200;
-  float KillRate = 0.01413;
-  //k=0.01413   f=0.00200
+  float FeedRate = 0;
+  float KillRate = 0;
+  
+#define KF (4)
+#if KF==0
+  // worms
+  FeedRate = 0.06100;
+  KillRate = 0.06264;
+#elif KF==1
+  // waves
+  FeedRate = 0.01710;
+  KillRate = 0.04557;
+#elif KF==2
+  // rivers
+  FeedRate = 0.09687;
+  KillRate = 0.05570;
+#elif KF==3
+  // dots
+  FeedRate = 0.03622;
+  KillRate = 0.06334;
+#elif KF==4
+  // brain
+  FeedRate = 0.04796;
+  KillRate = 0.06095;
+#endif
+  FeedRate += 0.0123/2.0-0.0123*sin(UFrameCount*0.01);
+  KillRate -= length(st)*0.01;
+  
+  //k=0.06334   f=0.03622 dots
+  //k=0.06095   f=0.04796 brain
   //TEXTUREj
   float2 Result;
   float a = TexRead[id.xy].r;
@@ -169,15 +197,40 @@ void KernelRender(uint3 id : SV_DispatchThreadID)
   float2 st = (2.0*id.xy-UTexRes.xy)/UTexRes.y;
   float2 uv = id.xy/UTexRes.xy;
   
-  float3 hsb = float3(TexRead[id.xy].rg, 1.0);
-  float4 Result = float4(TexRead[id.xy].r, TexRead[id.xy].g, 1.0, 1.0);
-  //lerp(a, b, t)
-  hsb.x = lerp(3.0, sin(UFrameCount*0.02), Result.g);
-  hsb.y = lerp(20.3, 55.8*Result.r, 10.1*hsb.z); //20, 100/40, 10/3
   
-  TexRender[id.xy] = hsb2rgb(normalize(hsb));
+  float h = TexRead[id.xy].r;
+  float s = TexRead[id.xy].g;
+  float b = 0.35;
+  
+  h = lerp(length(st)*TexRead[id.xy].g, 0.7, TexRead[id.xy].r*2.1);
+  s = lerp(1.2, 4.1*s, 1.3); //20, 100/40, 10/3
+  float3 hsb = float3(h,s,b);
+  
+  TexRender[id.xy] = hsb2rgb(hsb);
   //float3 cl = sdBox(st, float2(0.9,0.9));//float3(smoothstep(0.0,0.01, st), 1.0);
-  //TexRender[id.xy] = float4(0.01, 0.07, 0.2, 1.0);
+  //TexRender[id.xy] = float4(0.01, 0.07, 0.2,  .0);
+  return;
+}
+[numthreads(PIXELS_PER_THREADGROUP, PIXELS_PER_THREADGROUP, 1)]
+void KernelBumpmapCreate(uint3 id : SV_DispatchThreadID)
+{
+  if(id.x >= UTexRes.x || id.y >= UTexRes.y) return;
+  float2 st = (2.0*id.xy-UTexRes.xy)/UTexRes.y;
+  float2 uv = id.xy/UTexRes.xy;
+  //begin
+  float3 off = float3(-1.0, 0.0, 1.0);
+  float Height01= TexRead[ToroidalWrap(id.xy+off.xy)].g;
+  float Height11= TexRead[ToroidalWrap(id.xy+off.yy)].g;
+  float Height21= TexRead[ToroidalWrap(id.xy+off.zy)].g;
+  float Height10= TexRead[ToroidalWrap(id.xy+off.yx)].g;
+  float Height12= TexRead[ToroidalWrap(id.xy+off.yz)].g;
+  float2 size = float2(2.0, 0.0);
+  
+  float3 va = normalize(float3(size.xy, Height21-Height01));
+  float3 vb = normalize(float3(size.yx, Height12-Height10));
+  float3 Norm = cross(va, vb);
+  TexBump[id.xy] = float4(normalize(Norm), Height11);
+  //end
   return;
 }
 //~VERTEX SHADER
@@ -210,8 +263,19 @@ PS_INPUT VSMain(VS_INPUT Input, uint VertID : SV_VertexID)
 sampler           SamTexRendered : register(s0); // s0 = sampler bound to slot 0
 Texture2D<float4> TexRendered    : register(t0); // t0 = shader resource bound to slot 0
 //hight map
-sampler           SamTexState : register(s1); // s1 = sampler bound to slot 0
-Texture2D<float2> TexState    : register(t1); // t1 = shader resource bound to slot 0
+sampler           SamTexState : register(s1); // s1 = sampler bound to slot 1
+Texture2D<float2> TexState    : register(t1); // t1 = shader resource bound to slot 1
+//cube map
+sampler             SamTexCube : register(s2); // s1 = sampler bound to slot 0
+TextureCube<float4> TexCube    : register(t2); // t1 = shader resource bound to slot 0
+//cube map
+sampler             SamTexCubeBump : register(s3); // s1 = sampler bound to slot 0
+TextureCube<float4> TexCubeBump    : register(t3); // t1 = shader resource bound to slot 0
+
+sampler             SamTexBump : register(s4); // s1 = sampler bound to slot 0
+Texture2D<float4>   TexSRBump  : register(t4); // t1 = shader resource bound to slot 0
+
+
 
 //MISC RAYMARCHING
 struct cam { float3 x; float3 y; float3 z; };
@@ -225,18 +289,19 @@ hit HitZero()
 }
 #define TexelKind_Height (0)
 #define TexelKind_Color  (1)
+#define TexelKind_Normal (2)
 float3 GetTexel(float3 p, int id)
 {
   float3 q = normalize(p);
-  float  s  = 0.4*sin(UStepCount*0.002);
-#if 0
+  float  s  = 1.0;//*sin(UStepCount*0.002);
+#if 1
   float2 uv = float2(atan2(q.x, q.z), asin(q.y));
 #else
   float2 uv = 0.0;
   float hight = sin(PI/4);
   float lowt = sin(PI/4)/length(float3(1.0,1.0,1.0));
   q = abs(q);
-  //clamp(normalize(abs(q)).y, lowt, hight)
+  clamp(normalize(abs(q)).y, lowt, hight);
   if(q.x>hight) uv = q.zy;
   if(q.y>hight) uv = q.xz;
   if(q.z>hight) uv = q.xy;
@@ -245,17 +310,27 @@ float3 GetTexel(float3 p, int id)
   float3 tex = 1.0;
   if(id==TexelKind_Color)
   {
-    tex.xyz = TexRendered.SampleLevel(SamTexRendered, uv*s, 0).xyz;
+    //tex.xyz = TexRendered.SampleLevel(SamTexRendered, uv*s, 0).xyz;
+    tex.xyz = TexCube.SampleLevel(SamTexCube, q.xyz,0).xyz;
   }
-  if(id==TexelKind_Height)
+  else if(id==TexelKind_Height)
   {
-    tex.xy = TexState.SampleLevel(SamTexState, uv*s, 0).xy;
+    //tex.xy = TexState.SampleLevel(SamTexState, uv*s, 0).xy;
+    //tex.xy =TexState.SampleLevel(SamTexCube, q.xy,0).xy;
+    tex.x = TexCubeBump.SampleLevel(SamTexCubeBump, q.xyz,0).w;
   }
+  else if(id==TexelKind_Normal)
+  {
+    tex.xyz = TexCubeBump.SampleLevel(SamTexCubeBump, q.xyz,0).xyz;
+  }
+  
   return tex;
 }
 float SdTexturedSphere(float3 p)
 {
-  float s = -0.04*clamp(GetTexel(normalize(p), TexelKind_Height).r,0.0,1.0);
+  float3 Norm = normalize(p);
+  //end bump
+  float s = 0.04*GetTexel(Norm, TexelKind_Height).x;
   float d = length(p)-0.9-s;
   return d;
 }
@@ -264,7 +339,7 @@ float World(float3 p)
   float d = 1000.0;
   //Intersect Testing
   float dp = SdTexturedSphere(p);
-  //float d0 = max(0.0, p.y+0.8);
+  float d0 = max(0.0, p.y+0.8);
   d = min(d, dp);
   //d = min(d, d0);
   return d;
@@ -347,9 +422,9 @@ float Geometry(float3 Norm, float3 V, float3 L, float Roughness)
 float3 PBLighting(hit Hit, ray Ray, float3 CameraPos, float3 Norm, float3 Albedo)
 {
   //Params
-  float Roughness = 0.1;
+  float Roughness = 0.3;
   float3 F0 = 0.8;
-  float3 LightPos = 5.0;
+  float3 LightPos = float3(10.0, 0.3,10.0);
   //Params End
   float3 LightCol = float3(1.0, 1.0,1.0);
   float3 LightDir = normalize(LightPos - Hit.p); //Wi //float3 Wi = hash3(i);
@@ -389,32 +464,33 @@ float3 PhongLighting(hit Hit, float3 CameraPos, float3 Norm)
   float3 col = (dif+amb+spc);
   return col;
 }
-
 float3 Render(ray Ray, float3 rdx, float3 rdy, float3 FallbackColor)
 {
   float3 Color = FallbackColor;
   
-  // Only one light and excluding skylight so one loop
+  //Only one light and excluding skylight so one loop
   hit Hit = CastRay(Ray);
   if(Hit.d > -0.5)
   {
-    float3 Norm = Normal(Hit.p);
+    float3 Norm = normalize(Hit.p);
+    float3 SurfaceNorm = GetTexel(Norm, TexelKind_Normal).xyz;
+    
     float3 lighting = 0.0;
     float3 matte = 0.0102;
     float3 ambient = 0.0;
     float3 ao = 2.0;
 #define LIGHTING 1
 #if LIGHTING == 0
-    float3 diffuse = GetTexel(Hit.p, TexelKind_Color).rgb;
+    float3 diffuse = GetTexel(Norm, TexelKind_Color).rgb;
     matte = float3(0.5242,0.0,0.0)*0.0+diffuse;
     lighting = PhongLighting(Hit, Ray.o, Norm);
     //Result
     Color = matte*lighting;
 #elif LIGHTING==1
-    float3 diffuse = GetTexel(Hit.p, TexelKind_Color).rgb;
+    float3 diffuse = GetTexel(Norm, TexelKind_Color).rgb;
     matte = diffuse;
-    ambient = 0.03*matte*ao;
-    lighting = ambient + PBLighting(Hit, Ray, Ray.o, Norm, matte);
+    ambient = 0.05*matte*ao; //ambient
+    lighting = ambient+PBLighting(Hit, Ray, Ray.o, SurfaceNorm, matte);
     //Result
     Color = lighting;
 #endif
@@ -429,7 +505,7 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   float2 st = (2.0*Input.Pos.xy-UWinRes.xy)/UWinRes.y;
   
   //Color.xy = TexState.Sample(SamTexState, 1.0*Input.UV.xy).xy;
-  float OrbitRad = 1.8;
+  float OrbitRad = 1.8+2.0*bias(sin(UFrameCount*0.005));
   float Vignetting = smoothstep(0.32,0.0, length(st)-0.85/OrbitRad)*0.8+0.222;
   float3 BackgroundColor = 0.0;
   BackgroundColor = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;

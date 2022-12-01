@@ -40,6 +40,7 @@ enum tex_format
 {
   Unorm_RGBA = DXGI_FORMAT_R8G8B8A8_UNORM,
   Unorm_R    = DXGI_FORMAT_R8_UNORM,
+  Sint_R      = DXGI_FORMAT_R32_SINT,
   Float_R    = DXGI_FORMAT_R32_FLOAT,
   Float_RG   = DXGI_FORMAT_R32G32_FLOAT,
   Float_RGBA = DXGI_FORMAT_R32G32B32A32_FLOAT,
@@ -128,38 +129,26 @@ ID3D11RenderTargetView  *RTView     = BasePtr->RTView;          \
 ID3D11DepthStencilView  *DSView     = BasePtr->DSView;          \
 D3D11_VIEWPORT           Viewport   = BasePtr->Viewport;        
 
-// UTILS
-fn  d3d11_base D3D11InitBase(HWND Window);
-fn void D3D11UpdateWindowSize(d3d11_base *Base, v2s WindowDim);
-fn void D3D11GPUMemoryOp(ID3D11DeviceContext * Context, ID3D11Buffer *GPUBuffer, void *CPUBuffer, u32 Stride, u32 Count, gpu_mem_op Op);
-// BUFFERS
-fn void D3D11StructuredBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count);
-fn void D3D11VertexBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count);
-fn void D3D11ConstantBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Size, buffer_usage Usage, cpu_access Access);
-fn void D3D11StageBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Data, u32 Size);
-fn void D3D11BufferViewSR(ID3D11Device* Device, ID3D11ShaderResourceView  **SRV, ID3D11Buffer *Buffer, u32 Count);
-fn void D3D11ArgsBuffer(ID3D11Device* Device, ID3D11Buffer **Buffer, void *Args, u32 Size);
-fn void D3D11BufferViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Buffer *Buffer, u32 Count );
-fn void D3D11BufferViewUAAppend(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Buffer *Buffer, u32 Count );
-fn void *D3D11ReadBuffer(ID3D11DeviceContext *Context, ID3D11Buffer *TargetBuffer, ID3D11Buffer *StageBuffer, u32 Stride, u32 Count, arena *Arena);
-// TEXTURES
-fn void D3D11Tex2DStage(ID3D11Device* Device, ID3D11Texture2D **Texture, v2s TexDim, void *Data, u32 Stride, tex_format Format);
-fn void D3D11Tex2DViewSR(ID3D11Device* Device, ID3D11ShaderResourceView **SRV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format);
-fn void D3D11Tex2DViewUA(ID3D11Device* Device, ID3D11UnorderedAccessView **UAV, ID3D11Texture2D **GetTex, v2s TexDim, void *Data, u32 Stride, tex_format Format);
-fn void D3D11Tex2DViewSRAndUA(ID3D11Device* Device, ID3D11Texture2D **GetTex, ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, 
-                              v2s TexDim, void *Data, u32 Stride, tex_format Format);
-fn void D3D11Tex2DSwap(ID3D11DeviceContext *Context, ID3D11Texture2D **TexA, ID3D11Texture2D **TexB, ID3D11Texture2D *Stage);
-// SHADER COMPILATION
-fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry, const char *ShaderTypeAndVer, const char *CallerName);
-fn static DWORD WINAPI AsyncShaderLoader(void *Param);
-fn void D3D11AsyncShaderLoaderInit(async_shader_load *Loader, d3d11_base *Base);
-fn async_shader_status D3D11ShaderAsyncLoadAndCompile(d3d11_base *Base, d3d11_shader *Shader, datetime ReqTime);
-fn void D3D11ShaderAsyncHotReload(d3d11_base *Base, d3d11_shader *Shader);
-fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader);
-fn d3d11_shader D3D11ShaderCreate(shaderkind Kind, str8 Path, str8 EntryName, D3D11_INPUT_ELEMENT_DESC *VElemDesc,
-                                  u32 VElemDescCount, d3d11_base *Base);
-// PIPELINE MGMT
-fn void D3D11ClearComputeStage(ID3D11DeviceContext *Context);
-fn void D3D11ClearPipeline(ID3D11DeviceContext *Context);
+global d3d11_base *GlobalBase = NULL;
+
+#define D3D11ScopedBase(base) for(int _i_= (D3D11SetGlobalBase(base), 0); _i_<1; _i_++, D3D11ClearGlobalBase())
+
+//#define DeferLoop(start, end) for(int _i_ = ((start), 0); _i_ == 0; _i_ += 1, (end))
+#define D3D11ValidateAndDestructBase(base) \
+if(GlobalBase == NULL) \
+{ ConsoleLog("You did not set a ID3D11Device.\n"); return; } \
+D3D11BaseDestructure(GlobalBase);
+
+
+fn void D3D11SetGlobalBase(d3d11_base *Base);
+fn void D3D11ClearGlobalBase(void);
+
+fn void D3D11BufferStructUA(ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count);
+fn void D3D11BufferVertex(ID3D11Buffer **Buffer, void *Data, u32 Stride, u32 Count);
+fn void D3D11BufferConstant(ID3D11Buffer **Buffer, void *Data, u32 Size, buffer_usage Usage, cpu_access Access);
+fn void D3D11BufferStaging(ID3D11Buffer **Buffer, void *Data, u32 Size);
+fn void D3D11BufferArgs(ID3D11Buffer **Buffer, void *Args, u32 Size);
+
+fn void D3D11Tex2D(ID3D11Texture2D **GetTex, ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, v2s TexDim, void *Data, u32 Stride, tex_format Format);
 
 #endif //DX11_HELPERS_H

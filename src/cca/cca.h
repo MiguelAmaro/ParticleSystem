@@ -106,17 +106,21 @@ cca CcaInit(d3d11_base *Base)
     StateInitial[Elm] = 0.0f;
     TexelInitial[Elm] = V4f(0.0, 0.0, 0.0, 0.0);
   }
-  D3D11VertexBuffer(Device, &Result.VBuffer, Data, sizeof(struct vert), 6);
-  D3D11Tex2DViewSR(Device, &Result.SRViewTexRead ,
-                   &Result.TexRead, Result.TexRes, StateInitial, sizeof(f32), Float_R);
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexWrite,
-                        &Result.SRViewTexWrite, &Result.UAViewTexWrite,
-                        Result.TexRes, StateInitial, sizeof(f32), Float_R);
-  D3D11Tex2DViewSRAndUA(Device, &Result.TexRender,
-                        &Result.SRViewTexRender, &Result.UAViewTexRender,
-                        Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA);
-  D3D11Tex2DStage(Device, &Result.TexSwapStage, Result.TexRes, StateInitial, sizeof(f32), Float_R); // Swap Stage
-  D3D11ConstantBuffer(Device, &Result.Consts, NULL, sizeof(cca_consts), Usage_Dynamic, Access_Write);
+  D3D11ScopedBase(Base)
+  {
+    
+    D3D11BufferVertex(&Result.VBuffer, Data, sizeof(struct vert), 6);
+    D3D11Tex2DViewSR(Device, &Result.SRViewTexRead ,
+                     &Result.TexRead, Result.TexRes, StateInitial, sizeof(f32), Float_R);
+    D3D11Tex2D(&Result.TexWrite,
+               &Result.SRViewTexWrite, &Result.UAViewTexWrite,
+               Result.TexRes, StateInitial, sizeof(f32), Float_R);
+    D3D11Tex2D(&Result.TexRender,
+               &Result.SRViewTexRender, &Result.UAViewTexRender,
+               Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA);
+    D3D11Tex2DStage(&Result.TexSwapStage, Result.TexRes, StateInitial, sizeof(f32), Float_R); // Swap Stage
+    D3D11BufferConstant(&Result.Consts, NULL, sizeof(cca_consts), Usage_Dynamic, Access_Write);
+  }
   
   ArenaTempEnd(Temp);
   {

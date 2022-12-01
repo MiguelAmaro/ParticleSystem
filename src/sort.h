@@ -47,8 +47,6 @@ void MergeSortInitItrnl(void *a, u64 Count, u64 TypeSize, sort_comparator Compar
   void *b = ArenaPushBlock(Scratch.Arena, Count*TypeSize);
   Assert(b);
   MemoryCopy(a, BlockSize, b, BlockSize);
-  ga = a;
-  gb = b;// TODO(MIGUEL): get rid of this
   //OSProfileLinesStart("MergeSortItrnl");
   MergeSortItrnl((u8 *)a, (u8 *)b, Count, TypeSize, Comparator);
   //OSProfileEnd();
