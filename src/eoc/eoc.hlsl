@@ -154,5 +154,5 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   //float2 w = float2(p.x*0.5*cos(0.123*(float)UTime)+0.5, 0.5*cos(0.1*(float)UTime)+1.0*p.y);
   //Texel = smoothstep(0.01, 0.4,Texel-0.55)*float3(w, 1.0);
   float4 Color = float4(Texel, 1.0);
-  return Color;
+  return Color*Vignetting;
 }

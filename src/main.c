@@ -132,12 +132,16 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&c1);
   
-  eoc Eoc        = EocInit(&D11Base);
+  
+  // NOTE(MIGUEL): After this assgne the this projects ui struct to the ui_state.
+  //
+  instancing Instancing = InstancingInit(&D11Base);
 #if 0
+  eoc Eoc        = EocInit(&D11Base);
   reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
   wfc Wfc        = WfcInit(&D11Base);
   boids          Boids        = BoidsInit(&D11Base);
-  instancing     Instancing ;//   = InstancingInit(&D11Base);
+  instancing     Instancing    = InstancingInit(&D11Base);
   particlesystem ParticleSystem = CreateParticleSystem(&D11Base, 20, (f32)WindowDim.x, (f32)WindowDim.y);
   mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
   testrend       TestRenderer   = CreateTestRenderer(&D11Base);
@@ -147,6 +151,7 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   boids          Boids;
   reactdiffuse   ReactDiffuse ;
   wfc Wfc        ;
+  eoc Eoc;
   particlesystem ParticleSystem;
   mm_render      MMRender      ;
   testrend       TestRenderer  ;
@@ -156,11 +161,16 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
 #endif
   // AddSystem( "React Diffuse System"); //no more string table i just declare name here and have and store in buffer. ui can traverse array and pick whatever.
   
+  
+  // NOTE(MIGUEL): After this go to the main loops switch and assgin the ui req which should
+  //               have be updated by imgu to the project's ui state struct. they are the same type.
+  //               and dont forget to set the sys kind
   //IMGUI state
   ui_state UIState = {
-    .SysKind = SysKind_Eoc,
-    .EocReq = Eoc.UIState
+    .SysKind = SysKind_Instancing,
+    .InstancingReq = Instancing.UIState,
 #if 0
+    .EocReq = Eoc.UIState,
     .ReactDiffuseReq = ReactDiffuse.UIState,
     .WfcReq = Wfc.UIState,
     .BoidsReq = Boids.UIState,
@@ -273,6 +283,17 @@ for(.Syscount)
           D3D11ShaderAsyncHotReload(&D11Base, &ReactDiffuse.Bump);
           ReactDiffuseDraw(&ReactDiffuse, &D11Base, UIState.ReactDiffuseReq, FrameCount, WindowDimu);
         } break;
+        case SysKind_Instancing:
+        {
+          Instancing.UIState = UIState.InstancingReq;
+          InstancingUpdate(&Instancing, FrameCount, WindowDimu);
+          D3D11ShaderAsyncHotReload(&D11Base, &Instancing.Vertex);
+          D3D11ShaderAsyncHotReload(&D11Base, &Instancing.Pixel);
+          D3D11ShaderAsyncHotReload(&D11Base, &Instancing.Step);
+          D3D11ShaderAsyncHotReload(&D11Base, &Instancing.Render);
+          D3D11ShaderAsyncHotReload(&D11Base, &Instancing.Reset);
+          InstancingDraw(&Instancing, &D11Base, FrameCount, WindowDimu);
+        } break;
         case SysKind_Wfc:
         {
           D3D11ShaderAsyncHotReload(&D11Base, &Wfc.Vertex);
@@ -297,6 +318,10 @@ for(.Syscount)
         default:
         {} break;
       }
+      // NOTE(MIGUEL): After add in shader reloading go to the ui.h file and .c file and make sure
+      //               everything is hooked up.
+      
+      
       UIBegin();
       UIControlCluster(&UIState);
       UIEnd(Io);

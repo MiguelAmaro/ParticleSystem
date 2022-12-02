@@ -30,6 +30,26 @@ fn void UIReactDiffuseSection(ui_state *State)
   if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
   return;
 }
+fn void UIInstancingSection(ui_state *State)
+{
+  instancing_ui *Req = &State->InstancingReq;
+  // SIM PARAMS
+  {
+    
+  }
+  // SYS CONTROLS
+  {
+    Req->DoStep  = false;
+    Req->DoReset = false;
+    igSliderInt("Resolution", (s32 *)&Req->TexRes, INSTANCING_TEX_MIN_RES, INSTANCING_TEX_MAX_RES, NULL, 0);
+    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
+    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
+    igCheckbox("Auto Step", (bool *)&Req->AutoStep);
+    if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
+    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
+  }
+  return;
+}
 fn void UIEocSection(ui_state *State)
 {
   eoc_ui *Req = &State->EocReq;
@@ -41,8 +61,7 @@ fn void UIEocSection(ui_state *State)
   
   
   igCheckbox("Auto Step", (bool *)&Req->AutoStep);
-  Req->DoStep  = false;
-  Req->DoReset = false;
+  Req->DoStep  = false; Req->DoReset = false;
   if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
   if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
   return;
@@ -108,21 +127,23 @@ fn void UIControlCluster(ui_state *State)
 {
   f32 Framerate = igGetIO()->Framerate;
   ImGuiViewport* main_viewport = igGetMainViewport();
+  //COMMON
   igSetNextWindowPos(*ImVec2_ImVec2_Float(0, 0), 0, *ImVec2_ImVec2_Float(0.0,0.0));
-  igBegin("Hello, world!", NULL, 0);                          // Create a window called "Hello, world!" and append into it.
+  igBegin("Hello, world!", NULL, 0);
   igText("Application average %.3f ms/frame (%.1f FPS)", 1000.0f/Framerate, Framerate);
-  igCheckbox("Toggle Background Color", &State->ClearColorToggle);      // Edit bools storing our window open/close state
-  igCheckbox("Toggle Tex", &State->TexToggle);      // Edit bools storing our window open/close state
-  igColorEdit3("Clear Color", State->ClearColor.e, 0); // Edit 3 floats representing a color
-  igSliderFloat("Slider", &State->Slider, 0.0f, 1.0f, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
-  igSliderInt(SysStrTable[State->SysKind], (s32 *)&State->SysKind, 0, SysKind_Count-1, NULL, 0);            // Edit 1 float using a slider from 0.0f to 1.0f
-  //arena Arena; ArenaLocalInit(Arena, 256);
+  igCheckbox("Toggle Background Color", &State->ClearColorToggle);
+  igCheckbox("Toggle Tex", &State->TexToggle);
+  igColorEdit3("Clear Color", State->ClearColor.e, 0);
+  igSliderFloat("Slider", &State->Slider, 0.0f, 1.0f, NULL, 0);
+  igSliderInt(SysStrTable[State->SysKind], (s32 *)&State->SysKind, 0, SysKind_Count-1, NULL, 0);
+  //END COMMON
   switch(State->SysKind)
   {
     case SysKind_Cca: UICcaSection(State); break;
     case SysKind_Boids:UIBoidsSection(State); break;
     case SysKind_Physarum:UIPhysarumSection(State); break;
     case SysKind_ReactDiffuse:UIReactDiffuseSection(State); break;
+    case SysKind_Instancing:UIInstancingSection(State); break;
     case SysKind_Eoc:UIEocSection(State); break;
     default: ConsoleLog("No UI avilable for this sys!\n");
   }

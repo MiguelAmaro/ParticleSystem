@@ -153,6 +153,12 @@ typedef union m4f m4f;
 union m4f
 {
   v4f r[4]; f32 e[16]; f32 x[4][4];
+  struct {
+    f32 _00, _01, _02, _03;
+    f32 _10, _11, _12, _13;
+    f32 _20, _21, _22, _23;
+    f32 _30, _31, _32, _33;
+  };
 };
 //- INITIALIZERS
 v2f V2f(f32 x, f32 y)

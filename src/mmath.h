@@ -240,6 +240,21 @@ fn v4f Lerpv4f(v4f a, v4f b, f32 t)
   v4f Result = Add(Scale(a, t), Scale(b, (1.0f-t)));
   return Result;
 }
+fn m4f M4fRotate(f32 x, f32 y, f32 z )
+{
+  m4f Result = { 0 };
+  f32 sx = Sin(x);
+  f32 cx = Cos(x);
+  f32 sy = Sin(y);
+  f32 cy = Cos(y);
+  f32 sz = Sin(z);
+  f32 cz = Cos(z);
+  Result.r[0] = V4f(cz*cy, cz*sy*sx-sz*sx, cz*sy*cx+sz*sx, 0.0f);
+  Result.r[1] = V4f(sz*cy, sz*sy*sx+cz*cx, sz*sy*sx-cz*cx, 0.0f);
+  Result.r[2] = V4f(-sy, cy*sx, cy*sx, 0.0f);
+  Result.r[3] = V4f(0.0f, 0.0f, 0.0f, 1.0f);
+  return Result;
+}
 fn m4f M4fIdentity(void)
 {
   m4f Result = { 0 };
@@ -251,21 +266,18 @@ fn m4f M4fIdentity(void)
   
   return Result;
 }
-fn m4f M4fScale(f32 x, f32 y, f32 z)
+m4f Scalem4f(f32 x, f32 y, f32 z)
 {
-  m4f Result = { 0 };
-  
+  m4f Result = {0};
   Result.r[0] = V4f(x   , 0.0f, 0.0f, 0.0f);
   Result.r[1] = V4f(0.0f, y   , 0.0f, 0.0f);
   Result.r[2] = V4f(0.0f, 0.0f, z   , 0.0f);
   Result.r[3] = V4f(0.0f, 0.0f, 0.0f, 1.0f);
-  
   return Result;
 }
 fn m4f M4fRotate2D(f32 cos, f32 sin)
 {
   m4f Result = M4fIdentity();
-  
   Result.r[0] = V4f( cos, -sin, 0.0f, 0.0f);
   Result.r[1] = V4f( sin,  cos, 0.0f, 0.0f);
   Result.r[2] = V4f(0.0f, 0.0f, 1.0f, 0.0f);
@@ -274,57 +286,78 @@ fn m4f M4fRotate2D(f32 cos, f32 sin)
   return Result;
 }
 
+v4f Mulm4f_v4f(m4f m, v4f a)
+{
+  v4f Result = {0};
+  
+#define AB(arc,brc) m.arc*a.brc
+  Result.x = AB(_00, x) + AB(_01, y) + AB(_03, z) + AB(_03, w);
+  Result.y = AB(_10, x) + AB(_11, y) + AB(_13, z) + AB(_13, w);
+  Result.z = AB(_20, x) + AB(_21, y) + AB(_23, z) + AB(_23, w);
+  Result.w = AB(_30, x) + AB(_31, y) + AB(_33, z) + AB(_33, w);
+#undef AB
+  return Result;
+}
+
+/* NOTE(MIGUEL): Issues that im having with matrices.
+*                - How does changing the order of the operands change the output of the operation?
+*                  mul(S,T) vs mul(T, S). How do i know which is valid?
+*                
+*                - What is the clipping volume of d3d11 and what is the clipping volume of opengl?
+*                  How does that change the projection matrix?
+*                
+*                
+*                - The projection matrix is packing apect ratio correction, normalization of points
+*                  inside definded planes, perspective distortion. Where/how are those being applied in
+*                  the matrix?
+*                
+*                - What is matrix ordering?
+*                
+*                - Can the projection matrix be composed with the model/world matrix?
+*                
+*                - What is the significance of the cos,sin terms in the generic 3d rotation matrix? How can i check for correctness
+*                
+*                - Is the first [col][row] of a matrix always the frist elem? if so how does the layout of the data
+*                  change between col-major and row-major matrices? Try drawing the change with row col indices.
+*                
+*                - What in the projection matrix will change the haned-ness of the coordinate system?
+*                
+*                - What tests can i write for all of this?
+*                
+*                Resources:
+*                WARANGING: (v) this is d3d9. is it applicable to d3d11?
+*                https://learn.microsoft.com/en-us/windows/win32/direct3d9/projection-transform
+*              https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx-graphics-hlsl-per-component-math?redirectedfrom=MSDN#Matrix_Ordering
+*             https://social.msdn.microsoft.com/Forums/sqlserver/en-US/73696d3c-debe-4840-a062-925449f0a366/perspective-projection-matrix-in-d3d11?forum=wingameswithdirectx   
+*/
 fn m4f Mulm4f(m4f a, m4f b)
 {
   m4f Result = { 0 };
-#if 0
-  for(u32 BColumn = 0; BColumn < 4; BColumn ++)
-  {
-    for(u32 ARow = 0; ARow < 4; ARow++)
-    {
-      v4f Entry = &Result.r[BColumn];
-      Entry
-        a
-        for(u32 ScanElement = 0; ScanElement < 4; ScanElement++)
-      { *Entry += a->r[ScanRow].c[ScanElement] * b->r[ScanElement].c[ScanCol]; }
-    }
-  }
-#else
-  __m128 res[4];
-  __m128 sum;
-  __m128 prod0, prod1, prod2, prod3;
-  __m128 ar0 = _mm_loadu_ps(a.r[0].e);
-  __m128 ar1 = _mm_loadu_ps(a.r[1].e);
-  __m128 ar2 = _mm_loadu_ps(a.r[2].e);
-  __m128 ar3 = _mm_loadu_ps(a.r[3].e);
-  // NOTE(MIGUEL):(Expected to be column major)
-  __m128 bc[4];
-  bc[0] = _mm_loadu_ps(b.r[0].e);
-  bc[1] = _mm_loadu_ps(b.r[1].e);
-  bc[2] = _mm_loadu_ps(b.r[2].e);
-  bc[3] = _mm_loadu_ps(b.r[3].e);
+  //Row Compenent
+#define AB(arc,brc) a.arc*b.brc
+  Result._00 = AB(_00, _00) + AB(_10, _01) + AB(_20, _02) + AB(_30, _03);
+  Result._01 = AB(_01, _00) + AB(_11, _01) + AB(_21, _02) + AB(_31, _03);
+  Result._02 = AB(_02, _00) + AB(_12, _01) + AB(_22, _02) + AB(_32, _03);
+  Result._03 = AB(_03, _00) + AB(_13, _01) + AB(_23, _02) + AB(_33, _03);
   
-  for(u32 i=0;i<4;i++)
-  {
-    //DOTPRODUCT
-    prod0 = _mm_mul_ps (bc[i], ar0);
-    prod1 = _mm_mul_ps (bc[i], ar1);
-    prod2 = _mm_mul_ps (bc[i], ar2);
-    prod3 = _mm_mul_ps (bc[i], ar3);
-    _MM_TRANSPOSE4_PS(prod0, prod1, prod2, prod3);
-    sum = _mm_add_ps (prod0, prod1);
-    sum = _mm_add_ps (sum , prod2);
-    sum = _mm_add_ps (sum , prod3);
-    res[i] = sum;
-  }
-  _MM_TRANSPOSE4_PS(res[0], res[1], res[2], res[3]);
-  _mm_store_ps (Result.r[0].e, res[0]);
-  _mm_store_ps (Result.r[1].e, res[1]);
-  _mm_store_ps (Result.r[2].e, res[2]);
-  _mm_store_ps (Result.r[3].e, res[3]);
-#endif
+  Result._10 = AB(_00, _10) + AB(_10, _11) + AB(_20, _12) + AB(_30, _13);
+  Result._11 = AB(_01, _10) + AB(_11, _11) + AB(_21, _12) + AB(_31, _13);
+  Result._12 = AB(_02, _10) + AB(_12, _11) + AB(_22, _12) + AB(_32, _13);
+  Result._13 = AB(_03, _10) + AB(_13, _11) + AB(_23, _12) + AB(_33, _13);
+  
+  Result._20 = AB(_00, _20) + AB(_10, _21) + AB(_20, _22) + AB(_30, _23);
+  Result._21 = AB(_01, _20) + AB(_11, _21) + AB(_21, _22) + AB(_31, _23);
+  Result._22 = AB(_02, _20) + AB(_12, _21) + AB(_22, _22) + AB(_32, _23);
+  Result._23 = AB(_03, _20) + AB(_13, _21) + AB(_23, _22) + AB(_33, _23);
+  
+  Result._30 = AB(_00, _30) + AB(_10, _31) + AB(_20, _32) + AB(_30, _33);
+  Result._31 = AB(_01, _30) + AB(_11, _31) + AB(_21, _32) + AB(_31, _33);
+  Result._32 = AB(_02, _30) + AB(_12, _31) + AB(_22, _32) + AB(_32, _33);
+  Result._33 = AB(_03, _30) + AB(_13, _31) + AB(_23, _32) + AB(_33, _33);
+#undef AB
   return Result;
 }
+#if 0
 fn m4f M4fRotate(f32 x, f32 y, f32 z)
 {
   m4f Result = { 0 };
@@ -361,21 +394,16 @@ fn m4f M4fRotate(f32 x, f32 y, f32 z)
   
   return Result;
 }
+#endif
 static m4f
 M4fTranslate(v3f PosDelta)
 {
   m4f Result = { 0 };
-#if 1
+  //row major
   Result.r[0] = V4f(1.0f, 0.0f, 0.0f, PosDelta.x);
   Result.r[1] = V4f(0.0f, 1.0f, 0.0f, PosDelta.y);
   Result.r[2] = V4f(0.0f, 0.0f, 1.0f, PosDelta.z);
   Result.r[3] = V4f(0.0f, 0.0f, 0.0f, 1.0f);
-#else
-  Result.r[0] = V4f(1.0f, 0.0f, 0.0f, 0.0f);
-  Result.r[1] = V4f(0.0f, 1.0f, 0.0f, 0.0f);
-  Result.r[2] = V4f(0.0f, 0.0f, 1.0f, 0.0f);
-  Result.r[3] = V4f(PosDelta.x, PosDelta.y, PosDelta.z, 1.0f);
-#endif
   return Result;
 }
 static m4f
@@ -432,6 +460,21 @@ M4fOrtho(f32 LeftPlane,
   Result.r[3].e[3] = 1.0f;
 #endif
   
+  return Result;
+}
+m4f M4fPerspective(f32 b, f32 l, f32 t, f32 r, f32 n, f32 f)
+{
+  m4f Result = {0};
+  Result.r[0] = V4f(2*n/(r-l), 0.0f, 0.0f, 0.0f);
+  Result.r[1] = V4f(0.0f, 2*n/(t-b), 0.0f, 0.0f);
+  Result.r[2] = V4f(0.0f, 0.0f, -(f+n)/(f-n), 1.0f);
+  Result.r[3] = V4f(0.0f, 0.0f, -2*f*n/(f-n), 0.0f);
+#if 0
+  Result.r[0] = V4f(2*n/(r-l), 0.0f, (r+l)/(r-l), 0.0f);
+  Result.r[1] = V4f(0.0f, 2*n/(t-b), (t+b)/(t-b), 0.0f);
+  Result.r[2] = V4f(0.0f, 0.0f, -(f+n)/(f-n), -2*f*n/(f-n));
+  Result.r[3] = V4f(0.0f, 0.0f, -1.0f, 0.0f);
+#endif
   return Result;
 }
 
