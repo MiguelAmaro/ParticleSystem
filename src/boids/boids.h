@@ -156,10 +156,11 @@ boids BoidsInit(d3d11_base *Base)
     //State Views
     D3D11Tex2D(&Result.TexRead,
                &Result.SRViewTexRead, &Result.UAViewTexRead,
-               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA,
+               Usage_Default, 0);
     D3D11Tex2D(&Result.TexRender,
                &Result.SRViewTexRender, &Result.UAViewTexRender, 
-               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
+               Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA, Usage_Default, 0);
     D3D11Tex2DViewUA(Device, &Result.UAViewTexDebug, &Result.TexDebug, Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
     D3D11Tex2DViewUA(Device, &Result.UAViewTexWrite, &Result.TexWrite , Result.TexRes, TexInitial, sizeof(v4f), Float_RGBA);
     D3D11Tex2DStage(&Result.TexSwapStage, Result.TexRes, TexInitial, sizeof(v2f), Float_RGBA); // Swap Stage

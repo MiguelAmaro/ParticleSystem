@@ -68,8 +68,8 @@ fn volumetric VolumetricInit(d3d11_base *Base)
   {
     D3D11BufferVertex(&Result.VBuffer, QuadVerts, sizeof(struct vert), 6);
     D3D11BufferConstant(&Result.Consts, NULL, sizeof(volumetric_consts), Usage_Dynamic, Access_Write);
-    D3D11Tex2D(&Result.Tex, &Result.SRViewTex, &Result.UAViewTex, V2s(Result.UIState.Res, Result.UIState.Res), NULL, sizeof(v4f), Float_RGBA);
-    D3D11Tex2D(NULL, &Result.SRViewTexVOLUMETRIC, NULL, Result.InputImage.Dim, Result.InputImage.Data, Result.InputImage.Stride, Unorm_RGBA);
+    D3D11Tex2D(&Result.Tex, &Result.SRViewTex, &Result.UAViewTex, V2s(Result.UIState.Res, Result.UIState.Res), NULL, sizeof(v4f), Float_RGBA, Usage_Default, 0);
+    D3D11Tex2D(NULL, &Result.SRViewTexVOLUMETRIC, NULL, Result.InputImage.Dim, Result.InputImage.Data, Result.InputImage.Stride, Unorm_RGBA, Usage_Default, 0);
   }
   {
     D3D11_SAMPLER_DESC Desc = {0};

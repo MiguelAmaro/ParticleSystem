@@ -104,11 +104,11 @@ fn eoc EocInit(d3d11_base *Base)
     D3D11BufferStructUA(&Result.LUT, Result.StateTransitionLUT, sizeof(s32), Result.StateTransitionLUTLength = 1);
     D3D11BufferViewUA(Device, &Result.UAViewLUT, Result.LUT, Result.StateTransitionLUTLength = 1);
     D3D11Tex2D(&Result.TexRender, &Result.SRViewTexRender, &Result.UAViewTexRender,
-               V2s(Result.UIState.TexRes, Result.UIState.TexRes), NULL, sizeof(v4f), Float_RGBA);
+               V2s(Result.UIState.TexRes, Result.UIState.TexRes), NULL, sizeof(v4f), Float_RGBA, Usage_Default, 0);
     D3D11Tex2D(&Result.TexState, &Result.SRViewTexState, &Result.UAViewTexState,
-               V2s(Result.UIState.TexRes, Result.UIState.TexRes), NULL, sizeof(s32), Sint_R);
+               V2s(Result.UIState.TexRes, Result.UIState.TexRes), NULL, sizeof(s32), Sint_R, Usage_Default, 0);
     D3D11Tex2D(&Result.TexStateCopy, &Result.SRViewTexStateCopy, &Result.UAViewTexStateCopy,
-               V2s(Result.UIState.TexRes, Result.UIState.TexRes), NULL, sizeof(s32), Sint_R);
+               V2s(Result.UIState.TexRes, Result.UIState.TexRes), NULL, sizeof(s32), Sint_R, Usage_Default, 0);
     D3D11Tex2DStage(&Result.TexStateStage, V2s(Result.UIState.TexRes, Result.UIState.TexRes),
                     NULL, sizeof(s32), Sint_R);
   }

@@ -270,7 +270,7 @@ void KernelTexDiffuse(uint3 id : SV_DispatchThreadID)
   float4 oc = TexRead[id.xy];
   int Range = 2;
   float Avg = 0;
-  float TrailDecay = 0.99;
+  float TrailDecay = 0.59;
   for(int x=-Range; x<=Range; x++) {
     for(int y=-Range; y<=Range; y++) 
     {

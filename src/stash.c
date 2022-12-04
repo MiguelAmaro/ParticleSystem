@@ -234,3 +234,87 @@
   }
 #endif
 }
+
+{
+  
+  ID3D11Texture2D* FBTex;
+  HRESULT hr = IDXGISwapChain1_GetBuffer( 0, __uuidof( ID3D11Texture2D ), (void **)&FBTex));
+  
+  ID3D11Texture2D* CaptureTex;
+  D3D11Tex2D(CaptureTex, NULL, NULL, WindowDim, NULL, sizeof(u32)
+             DXGI_FORMAT_R8G8B8A8_UNORM,
+             D3D11_USAGE_STAGING,
+             D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE);
+  
+  u32 PixelCount = WindowDim.x*WindowDim.y;
+  u32 *CapturedFB = ArenaPushArray(Arena, PixelCount, u32);
+  
+  ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)CapturedTex, (ID3D11Resource *)FBTex);
+  D3D11GPUMemoryRead(Context, CapturedTex, CapturedFB, sizeof(u32), PixelCount);
+  
+  
+  
+  
+  
+  //ID3D11DeviceContext_CopyResource(Context, (ID3D11Resource *)StageBuffer, (ID3D11Resource*)TargetBuffer);
+  //const int width = static_cast<int>(m_window->Bounds.Width * m_dpi / 96.0f);
+  //const int height = static_cast<int>(m_window->Bounds.Height * m_dpi / 96.0f);
+  //unsigned int size = width * height;
+  if( pSurface )
+  {
+    if( m_captureData )
+    {
+      freeFramebufferData( m_captureData );
+    }
+    m_captureData = new unsigned char[ width * height * 4 ];
+    
+    
+    {
+      ID3D11Texture2D* pNewTexture = NULL;
+      D3D11_TEXTURE2D_DESC description =
+      {
+        width, height, 1, 1, DXGI_FORMAT_R8G8B8A8_UNORM,
+        { 1, 0 }, // DXGI_SAMPLE_DESC
+        D3D11_USAGE_STAGING,
+        0, D3D11_CPU_ACCESS_READ | D3D11_CPU_ACCESS_WRITE, 0
+      };
+      HRESULT hr = m_d3dDevice->CreateTexture2D( &description, NULL, &pNewTexture );
+    }
+    
+    
+    if( pNewTexture )
+    {
+      m_d3dContext->CopyResource( pNewTexture, pSurface );
+      D3D11_MAPPED_SUBRESOURCE resource;
+      unsigned int subresource = D3D11CalcSubresource( 0, 0, 0 );
+      HRESULT hr = m_d3dContext->Map( pNewTexture, subresource, D3D11_MAP_READ, 0, &resource );
+      //resource.pData; // TEXTURE DATA IS HERE
+      
+      const int pitch = width << 2;
+      const unsigned char* source = static_cast< const unsigned char* >( resource.pData );
+      unsigned char* dest = m_captureData;
+      for( int i = 0; i < height; ++i )
+      {
+        memcpy( dest, source, width * 4 );
+        source += pitch;
+        dest += pitch;
+      }
+      
+      m_captureSize = size;
+      m_captureWidth = width;
+      m_captureHeight = height;
+      
+      
+      ImVec2 pos = ImGui::GetCursorScreenPos();
+      
+      ImGui::GetWindowDrawList()->AddImage(
+                                           (void *)window.getRenderTexture(), ImVec2(ImGui::GetCursorScreenPos()),
+                                           ImVec2(ImGui::GetCursorScreenPos().x + window.getWidth()/2, ImGui::GetCursorScreenPos().y + window.getHeight()/2), ImVec2(0, 1), ImVec2(1, 0));
+      
+      ImGui::End();
+      return;
+    }
+    
+    freeFramebufferData( m_captureData );
+  }
+}

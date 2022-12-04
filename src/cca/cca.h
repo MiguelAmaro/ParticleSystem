@@ -114,10 +114,10 @@ cca CcaInit(d3d11_base *Base)
                      &Result.TexRead, Result.TexRes, StateInitial, sizeof(f32), Float_R);
     D3D11Tex2D(&Result.TexWrite,
                &Result.SRViewTexWrite, &Result.UAViewTexWrite,
-               Result.TexRes, StateInitial, sizeof(f32), Float_R);
+               Result.TexRes, StateInitial, sizeof(f32), Float_R, Usage_Default, 0);
     D3D11Tex2D(&Result.TexRender,
                &Result.SRViewTexRender, &Result.UAViewTexRender,
-               Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA);
+               Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA, Usage_Default, 0);
     D3D11Tex2DStage(&Result.TexSwapStage, Result.TexRes, StateInitial, sizeof(f32), Float_R); // Swap Stage
     D3D11BufferConstant(&Result.Consts, NULL, sizeof(cca_consts), Usage_Dynamic, Access_Write);
   }
@@ -174,10 +174,35 @@ void CcaReset(cca *Cca, d3d11_base *Base, cca_consts Consts)
   D3D11Tex2DSwap(Context, &Cca->TexRead, &Cca->TexWrite, Cca->TexSwapStage);
   return;
 }
+void CcaDisplayTextures(cca *Cca)
+{
+  ImVec2 Dim;
+  igGetWindowSize(&Dim);
+  igColumns(3, NULL, 0);
+  igText("read");
+  igImage(Cca->SRViewTexRead, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  igNextColumn();
+  igText("write");
+  igImage(Cca->SRViewTexWrite, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  igNextColumn();
+  igText("render");
+  igImage(Cca->SRViewTexRender, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  return;
+}
 void CcaDraw(cca *Cca, d3d11_base *Base, cca_ui UIReq, u64 FrameCount, v2u WinRes)
 {
   D3D11BaseDestructure(Base);
   local_persist u32 StepCount = 0;
+  
   // CCA PASS
   cca_consts Consts = {
     .UWinRes = WinRes,

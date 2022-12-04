@@ -53,15 +53,16 @@ RWTexture2D<float> TexWrite  : register( u0 );
 RWTexture2D<float4>TexRender : register( u1 );
 void Render( uint3 id, float State, float Count)
 {
-  float s = State/UMaxStates;
+  float sm = State/UMaxStates;
   float c = Count/UOverCount;
+  float3 hsb = sm;
+  float h = lerp(c, 1.0, hsb.x*0.9);   // 1/3/4 M
+  float s = lerp(1.0, 1.0, c);     // 8/14/2/N
+  float b = 0.2;     // 8/14/2/N
+  hsb = float3(h,s,b);
   
-  float3 hsb = s;
-  hsb.x = lerp(2., .3, hsb.x);   // 1/3/4 M
-  hsb.y = lerp(.8, 1.0, 0.2);     // 8/14/2/N
-  hsb.z += 0.7;     // 8/14/2/N
   TexRender[id.xy] += hsb2rgb(hsb); // 1/3/4/M
-  TexRender[id.xy] *= 0.9*hsb2rgb(hsb); // 1/3/4/M
+  TexRender[id.xy] *= 0.9; // 1/3/4/M
   return;
 }
 [numthreads( PIXELS_PER_THREADGROUP, PIXELS_PER_THREADGROUP, 1)]
@@ -200,7 +201,7 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   
   float Vignetting = smoothstep(0.3,0.0, length(st)-0.75);
   float3 Color = float3(1.0, 0.9, 0.9);
-  
+#if 0
   //RAYMARCHING
   float OrbitRad = 1.0;
   float3 Target = float3(0.0, 0.0, 0.0);
@@ -225,6 +226,7 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
     float3 matte = TriPlanarMap(Norm).xyz;
     Color = matte;
   }
+#endif
   
   Color = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
   Color = pow(max(0.0,Color), 0.4545);

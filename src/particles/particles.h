@@ -124,7 +124,7 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
   // NOTE(MIGUEL): This is not tested.
   // TODO(MIGUEL): Verify this works.
   D3D11GPUMemoryRead(Context,
-                     System->DbgStageBuffer,
+                     (ID3D11Resource *)System->DbgStageBuffer,
                      &System->ParticlesA,
                      sizeof(u32), //particle 
                      64

@@ -152,6 +152,6 @@ fn void D3D11BufferConstant(ID3D11Buffer **Buffer, void *Data, u32 Size, buffer_
 fn void D3D11BufferStaging(ID3D11Buffer **Buffer, void *Data, u32 Size);
 fn void D3D11BufferArgs(ID3D11Buffer **Buffer, void *Args, u32 Size);
 
-fn void D3D11Tex2D(ID3D11Texture2D **GetTex, ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, v2s TexDim, void *Data, u32 Stride, tex_format Format);
+fn void D3D11Tex2D(ID3D11Texture2D **GetTex, ID3D11ShaderResourceView **SRV, ID3D11UnorderedAccessView **UAV, v2s TexDim, void *Data, u32 Stride, tex_format Format, buffer_usage Usage, cpu_access Access);
 
 #endif //DX11_HELPERS_H

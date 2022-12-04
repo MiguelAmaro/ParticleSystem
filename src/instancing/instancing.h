@@ -103,13 +103,13 @@ fn instancing InstancingInit(d3d11_base *Base)
     D3D11BufferConstant(&Result.Consts, NULL, sizeof(instancing_consts), Usage_Dynamic, Access_Write);
     D3D11BufferVertex(&Result.VBuffer, Data, sizeof(struct vert), 6);
     D3D11Tex2D(&Result.TexRead, &Result.SRViewTexRead, &Result.UAViewTexRead,
-               TexRes, NULL, sizeof(s32), Sint_R);
+               TexRes, NULL, sizeof(s32), Sint_R, Usage_Default, 0);
     D3D11Tex2D(&Result.TexWrite, &Result.SRViewTexWrite, &Result.UAViewTexWrite,
-               TexRes, NULL, sizeof(s32), Sint_R);
+               TexRes, NULL, sizeof(s32), Sint_R, Usage_Default, 0);
     D3D11Tex2DStage(&Result.TexSwapStage, TexRes, NULL, sizeof(s32), Sint_R); // Swap Stage
     D3D11Tex2D(&Result.TexRender,
                &Result.SRViewTexRender, &Result.UAViewTexRender,
-               TexRes, NULL, sizeof(v4f), Float_RGBA);
+               TexRes, NULL, sizeof(v4f), Float_RGBA, Usage_Default, 0);
   }
   // SAMPLERS
   {

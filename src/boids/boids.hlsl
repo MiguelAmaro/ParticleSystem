@@ -107,8 +107,8 @@ float2 SimpleTurns(agent Agent, uint3 id)
 {
   // TODO(MIGUEL): Test with fbm
   // This probably really expensive
-  float SeedX = fbm((float2)((float)id+0.022)*UTime+.0232)*sin(UTime*0.002302);
-  float SeedY = fbm((float2)id*UTime*0.02+0.02324)*cos(UTime*0.00923);
+  float SeedX = fbm((float2)((float)id+0.022)*UTime+.00132)*sin(UTime*0.001302);
+  float SeedY = fbm((float2)id*UTime*0.001+0.002324)*cos(UTime*0.00123);
   float2 RandDir = normalize(float2(SeedX, SeedY));
   float2 NewVel  = normalize(lerp(RandDir, Agent.Vel, 0.5))+Agent.Vel;
   return NewVel;
@@ -297,7 +297,7 @@ void KernelTexDiffuse(uint3 id : SV_DispatchThreadID)
   float4 oc = TexRead[id.xy];
   int Range = 2;
   float Avg = 0;
-  float TrailDecay = 0.5;
+  float TrailDecay = 0.9;
   for(int x=-Range; x<=Range; x++) {
     for(int y=-Range; y<=Range; y++) 
     {

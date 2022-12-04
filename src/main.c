@@ -80,33 +80,84 @@
 #include "instancing/instancing.h"
 #include "tex3d/tex3d.h"
 #include "terrain/terrain.h"
-//PROJECTS
 
+//PROJECTS
 // TODO(MIGUEL): Push function for Sys str table
 // TODO(MIGUEL): Push function for Sys str table
 
 #include "ui.h"
 #include "ui.c"
 
-/* NOTE(MIGUEL): Today i fleshed out imgui stuff more. There is now the ablity to display shader compilation error messages.
-               *                The ways it work is very sketchy. I just read the async_loader structure message string directly from ui code.
-               *                the loader system might be overwriting previous messages emited by previous shader compilations. None of ths 
-               *                I am not sure if d3d11 Info query can get the state of a shader compiler. regardless it seems like it can
-               *                query the stater of the piplind and its error which will till be use full.
-               *                My guess for how compile messages should be stored is:
-               *                d3d11_shader types should each have a block allocated in their systems arena. a pointer the their respective bloc
-               *                d3d11_base should have and arena and a function that can use d3d11 queryinfo api to get pipe line state and push 
-               *                whatever on to the base arena
-               *                shader will all have their messages dumped afte hotloading.
-               *                the issue will be keep messages on screen and clearing them as appropriate
+/* NOTE(MIGUEL): 
+*                LOG: (12/03/2022)
+*                Today i fleshed out imgui stuff more. There is now the ablity to display shader compilation error messages.
+               *                The ways it work is very sketchy for the following reasons:
+*                - I just read the async_loader structure message string directly from ui code.
+               *                - The loader system might be overwriting previous messages emited by previous shader compilations.
+*                - 
+               *                I am not sure if d3d11 Info query can get the state of a shader compiler. Regardless it seems that it can
+               *                query the state of the pipeline and its error which will be usefull.
                *                
-               *                other things would be to a have the option render to an imgui window instad of main window
-               *                this involve grabbing the frame buffer from d3d11 and some othe stuff
+               *                My guess for how to compile messages should be stored is:
+               *                - d3d11_shader types should each have a block allocated in their systems arena.
+*                - they should have a pointer the their respective blocks int their str8s.
+               *                - d3d11_base should have and arena and a function that can use d3d11 queryinfo api to get pipeline state
+*                  and push whatever on to the base arena.
+               *                - shader will all have their messages dumped after hotloading.
                *                
-               *                i should push media foundation
+               *                Things to implement/fix:
+               *                - The issue will be keep messages on screen and clearing them as appropriate.
+               *                - Other things would be to a have the option render to an imgui window instad of main window.
+               *                  This involves grabbing the frame buffer from d3d11 and some othe stuff
+               *                
+               *                - I should push forward more with media foundation.
+               *                - I want a way to poast on instagram/twiter from the app.
+               *                - I want working matix operations.
+               *                - Make "systems" a dll that can be loaded.
+               *                - make funcions of "systems" that are call in main loop exported module functions
+               *                - 
+               *                
+               *                Resources for D3D11InfoQuery
+               *                https://learn.microsoft.com/en-us/windows/win32/api/d3d11sdklayers/ne-d3d11sdklayers-d3d11_message_category
+               *                https://learn.microsoft.com/en-us/windows/win32/api/d3d11sdklayers/nn-d3d11sdklayers-id3d11infoqueue
+               *                https://learn.microsoft.com/en-us/windows/win32/api/d3d11sdklayers/nf-d3d11sdklayers-id3d11infoqueue-getmessage
+               *                https://learn.microsoft.com/en-us/windows/win32/api/d3d11sdklayers/nf-d3d11sdklayers-id3d11infoqueue-getnumstoredmessages
+               *                https://learn.microsoft.com/en-us/windows/win32/api/d3d11sdklayers/nf-d3d11sdklayers-id3d11infoqueue-getbreakonid
+               *                https://learn.microsoft.com/en-us/windows/win32/api/d3d11sdklayers/ne-d3d11sdklayers-d3d11_message_id
+               *                
+               *                for imgui
+               *                https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
+               *                https://github.com/ocornut/imgui/blob/master/docs/FAQ.md#q-how-can-i-display-an-image-what-is-imtextureid-how-does-it-work
+               *                https://github.com/ocornut/imgui/blob/master/docs/FAQ.md
+               *                https://gamedev.stackexchange.com/questions/150214/render-in-a-imgui-window
+               *                https://github.com/ocornut/imgui/wiki/Glossary
                *                
                *                
-
+               *                for rendering to texture on d3d11 (search term: dx11 render to texture)
+               *                https://www.rastertek.com/dx11tut22.html <--(look into this first)
+               *                https://stackoverflow.com/questions/48969606/directx-11-render-to-texture
+               *                https://stackoverflow.com/questions/10623787/directx-11-framebuffer-capture-c-no-win32-or-d3dx
+               *                https://learnopengl.com/Advanced-OpenGL/Framebuffers
+               *                
+               *                for media foundation
+               *                https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/Win7Samples/multimedia/mediafoundation
+*                
+  *                video to file:
+  *                https://github.com/microsoft/Windows-classic-samples/tree/main/Samples/Win7Samples/multimedia/mediafoundation/MFCaptureToFile
+*                guide: 
+*                https://learn.microsoft.com/en-us/windows/win32/medfound/media-foundation-programming-guide
+*                https://learn.microsoft.com/en-us/windows/win32/medfound/media-foundation-sdk-samples
+*                
+*                LOG: (12/04/2022)
+*                Found out imgui's ImTextureId is a void * that is expected to point to an srv. I tried to capture 
+*                the frame buffer but got garbage. There is another example on how to render to a texture described by
+*                https://www.rastertek.com/dx11tut22.html. should give it a try.
+*                Acually i seem to be copying the frame buffer somewhat correctly. The issue is that the application must
+*                be maximized and in the the left monitor or else there's distortion.
+*                
+*                
+*                
+*                
 */               
 
 b32 CompareInts(void *a, void *b)
@@ -192,8 +243,13 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   //ParticleSystemLoadShaders(&ParticleSystem, D11Base.Device);
   u64 FrameCount = 0;
   b32 Running = 1;
-  arena MainArena = ArenaInit(NULL, 1024*4, OSMemoryAlloc(1024*4));
+  arena MainArena = ArenaInit(NULL, Gigabytes(2), OSMemoryAlloc(Gigabytes(2)));
+  
+  
+  //D3D11Tex2D()
+  
   str8 D3D11Msg = {0};
+  u32 *CapturedFB = NULL;
   for (;Running;)
   {
     // process all incoming Windows messages
@@ -352,25 +408,72 @@ for(.Syscount)
       //               everything is hooked up.
       UIBegin(&UIState);
       UIControlCluster(&UIState);
-      UIEnd(&UIState, Io);
-    }
-    
-    // change to FALSE to disable vsync
-    HRESULT Status;
-    BOOL vsync = TRUE;
-    Status = IDXGISwapChain1_Present(D11Base.SwapChain, vsync ? 1 : 0, 0);
-    if (Status == DXGI_STATUS_OCCLUDED)
-    {
-      // window is minimized, cannot vsync - instead sleep a bit
-      if (vsync)
+      igBegin("Textures", NULL, ImGuiWindowFlags_None);
+      switch(UIState.SysKind)
       {
-        Sleep(10);
+        case SysKind_Cca: CcaDisplayTextures(&Cca); break;
+        case SysKind_ReactDiffuse: ReactDiffuseDisplayTextures(&ReactDiffuse); break;
+        default: break;
+      }
+      igEnd();
+      ID3D11ShaderResourceView* SRVDisplayTex;
+#if 1
+      {
+        igBegin("Framebuffer", NULL, ImGuiWindowFlags_None);
+        ID3D11Texture2D* FBTex;
+        HRESULT Status = IDXGISwapChain1_GetBuffer(D11Base.SwapChain, 0, &IID_ID3D11Texture2D, &FBTex);
+        
+        ID3D11Texture2D* CapturedTex;
+        D3D11ScopedBase(&D11Base)
+        {
+          D3D11Tex2DStage(&CapturedTex, WindowDim, NULL, sizeof(u32), DXGI_FORMAT_R8G8B8A8_UNORM);
+          u32 PixelCount = WindowDim.x*WindowDim.y;
+          
+          Scratch = MemoryGetScratch(NULL, 0);
+          CapturedFB = ArenaPushArray(Scratch.Arena, PixelCount, u32);
+          
+          ID3D11DeviceContext_CopyResource(D11Base.Context, (ID3D11Resource *)CapturedTex, (ID3D11Resource *)FBTex);
+          D3D11GPUMemoryRead(D11Base.Context, (ID3D11Resource *)CapturedTex, CapturedFB, sizeof(u32), PixelCount);
+          ID3D11Texture2D_Release(CapturedTex);
+          ID3D11Texture2D_Release(FBTex);
+          // Imgui add framebuffer to window
+          
+          D3D11Tex2D(NULL, &SRVDisplayTex, NULL, WindowDim, CapturedFB, sizeof(u32), Unorm_RGBA,
+                     Usage_Default, 0);
+          MemoryReleaseScratch(Scratch);
+        }
+        
+        ImVec2 Pos;
+        igGetCursorScreenPos(&Pos);
+        ImVec2 Dim;
+        igGetWindowSize(&Dim);
+        //*ImVec2_ImVec2_Float(WindowDimf.x, WindowDimf.y)
+        igImage(SRVDisplayTex, Dim,
+                *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+                *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+                *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+        igEnd();
+      }
+#endif
+      UIEnd(&UIState, Io);
+      if(SRVDisplayTex) ID3D11ShaderResourceView_Release(SRVDisplayTex);
+    }
+    {
+      // change to FALSE to disable vsync
+      HRESULT Status;
+      BOOL Vsync = TRUE;
+      Status = IDXGISwapChain1_Present(D11Base.SwapChain, Vsync?1:0, 0);
+      if (Status == DXGI_STATUS_OCCLUDED)
+      {
+        // window is minimized, cannot vsync - instead sleep a bit
+        if (Vsync) { Sleep(10); }
+      }
+      else if (FAILED(Status))
+      {
+        FatalError("Failed to present swap chain! Device lost?");
       }
     }
-    else if (FAILED(Status))
-    {
-      FatalError("Failed to present swap chain! Device lost?");
-    }
+    
     FrameCount++;
   }
 }

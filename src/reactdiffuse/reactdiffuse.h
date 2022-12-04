@@ -119,16 +119,16 @@ fn reactdiffuse ReactDiffuseInit(d3d11_base *Base)
     D3D11BufferVertex(&Result.VBuffer, Data, sizeof(struct vert), 6);
     D3D11Tex2D(&Result.TexRead,
                &Result.SRViewTexRead, &Result.UAViewTexRead,
-               Result.TexRes, StateInitial, sizeof(v2f), Float_RG);
+               Result.TexRes, StateInitial, sizeof(v2f), Float_RG, Usage_Default, 0);
     D3D11Tex2D(&Result.TexWrite,
                &Result.SRViewTexWrite, &Result.UAViewTexWrite,
-               Result.TexRes, StateInitial, sizeof(v2f), Float_RG);
+               Result.TexRes, StateInitial, sizeof(v2f), Float_RG, Usage_Default, 0);
     D3D11Tex2D(&Result.TexRender,
                &Result.SRViewTexRender, &Result.UAViewTexRender,
-               Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA);
+               Result.TexRes, TexelInitial, sizeof(v4f), Float_RGBA, Usage_Default, 0);
     D3D11Tex2D(&Result.TexBump,
                &Result.SRViewTexBump, &Result.UAViewTexBump, 
-               Result.TexRes, NULL, sizeof(v4f), Float_RGBA);
+               Result.TexRes, NULL, sizeof(v4f), Float_RGBA, Usage_Default, 0);
     D3D11Tex2DCube(&Result.TexCube, &Result.SRViewTexCube,
                    NULL, Result.TexRes, NULL, sizeof(v4f), Float_RGBA, Usage_Default);
     D3D11Tex2DCube(&Result.TexCubeBump, &Result.SRViewTexCubeBump,
@@ -281,6 +281,45 @@ fn void ReactDiffuseReset(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdif
   D3D11ClearComputeStage(Context);
   
   //D3D11Tex2DSwap(Context, &ReactDiffuse->TexRead, &ReactDiffuse->TexWrite, ReactDiffuse->TexSwapStage);
+  return;
+}
+void ReactDiffuseDisplayTextures(reactdiffuse *ReactDiffuse)
+{
+  ImVec2 Dim;
+  igGetWindowSize(&Dim);
+  
+  f32 Padding = 0.3f;
+  s32 CellCount = 4; //cell per tex
+  
+  
+  Dim.x/= CellCount;
+  Dim.x -= Padding*CellCount*2.0f;
+  Dim.y = Dim.x;
+  igColumns(CellCount, NULL, 0);
+  igText("read");
+  igImage(ReactDiffuse->SRViewTexRead, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  igNextColumn();
+  igText("write");
+  igImage(ReactDiffuse->SRViewTexWrite, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  igNextColumn();
+  igText("bump");
+  igImage(ReactDiffuse->SRViewTexBump, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  igNextColumn();
+  igText("render");
+  igImage(ReactDiffuse->SRViewTexRender, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  
   return;
 }
 fn void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse_ui UIReq, u64 FrameCount, v2u WinRes)
