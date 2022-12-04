@@ -76,6 +76,23 @@ fn instancing_ui InstancingUIStateInit(void)
   };
   return Result;
 }
+fn void InstancingUI(instancing_ui *Req)
+{
+  {   // SIM PARAMS
+    igSpacing();
+  }
+  {   // SYS CONTROLS
+    Req->DoStep  = false;
+    Req->DoReset = false;
+    igSliderInt("Resolution", (s32 *)&Req->TexRes, INSTANCING_TEX_MIN_RES, INSTANCING_TEX_MAX_RES, NULL, 0);
+    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
+    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
+    igCheckbox("Auto Step", (bool *)&Req->AutoStep);
+    if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
+    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
+  }
+  return;
+}
 fn instancing InstancingInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);

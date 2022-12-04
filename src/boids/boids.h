@@ -119,6 +119,31 @@ boids_ui BoidsUIStateInit(void)
   };
   return Result;
 }
+void BoidsUI(boids_ui *Req)
+{
+  {  //SYS PARAMS
+    igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, BOIDS_MAX_AGENTCOUNT, NULL, 0);
+    igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 100, NULL, 0);
+    igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, 0.0, 1.0, NULL, 0);
+    igSliderFloat("AlignmentFactor", (f32 *)&Req->AlignmentFactor, 0.0, 5.0, NULL, 0);
+    igSliderFloat("CohesionFactor", (f32 *)&Req->CohesionFactor, 0.0, 5.0, NULL, 0);
+    igSliderFloat("SeperationFactor", (f32 *)&Req->SeperationFactor, 0.0, 5.0, NULL, 0);
+    igSliderFloat("Max Speed", (f32 *)&Req->MaxSpeed, 0.0, 5.0, NULL, 0);
+    igSliderFloat("Max Force", (f32 *)&Req->MaxForce, 0.0, 5.0, NULL, 0);
+    igSpacing();
+  }
+  {  //SYS PARAMS
+    Req->DoStep  = false;
+    Req->DoReset = false;
+    igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
+    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
+    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
+    igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
+    if(igButton("Step", *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
+    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
+  }
+  return;
+}
 boids BoidsInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);

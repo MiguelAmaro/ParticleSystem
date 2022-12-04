@@ -91,6 +91,26 @@ physarum_ui PhysarumUIStateInit(void)
   };
   return Result;
 }
+void PhysarumUI(physarum_ui *Req)
+{
+  {  //SYS PARAMS
+    igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, 10000, NULL, 0);
+    igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 5, NULL, 0);
+    igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, 1, Pi32*2.0, NULL, 0);
+    igSpacing();
+  }
+  {  //SYS PARAMS
+    Req->DoStep  = false;
+    Req->DoReset = false;
+    igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
+    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
+    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
+    igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
+    if(igButton("Step", *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
+    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
+  }
+  return;
+}
 physarum PhysarumInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);

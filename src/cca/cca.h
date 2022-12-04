@@ -77,6 +77,53 @@ cca_ui CCaUIStateInit(void)
   };
   return Result;
 }
+void CcaUI(cca_ui *Req)
+{
+  // SIM PARAMS
+  {
+    igSliderInt("MaxState", (s32 *)&Req->MaxStates, 1, 20, NULL, 0);
+    igSliderInt("Threashold", (s32 *)&Req->Threashold, 1, Req->MaxStates, NULL, 0);
+    igSliderInt("Search Range", (s32 *)&Req->Range, 1, 5, NULL, 0);
+    igSliderInt("OverCount", (s32 *)&Req->OverCount, 1, (2*Req->Range+1)*(2*Req->Range+1), NULL, 0);
+    igSpacing();
+  }
+  // SYS CONTROLS
+  {
+    Req->DoStep  = false;
+    Req->DoReset = false;
+    igSliderInt("Resolution", (s32 *)&Req->Res, CCA_MIN_TEX_RES, CCA_MAX_TEX_RES , NULL, 0);
+    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
+    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
+    igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
+    if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
+    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
+  }
+  return;
+}
+void CcaDisplayTextures(cca *Cca)
+{
+  ImVec2 Dim;
+  igGetWindowSize(&Dim);
+  igColumns(3, NULL, 0);
+  igText("read");
+  igImage(Cca->SRViewTexRead, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  igNextColumn();
+  igText("write");
+  igImage(Cca->SRViewTexWrite, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  igNextColumn();
+  igText("render");
+  igImage(Cca->SRViewTexRender, Dim,
+          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
+          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
+          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
+  return;
+}
 cca CcaInit(d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);
@@ -172,30 +219,6 @@ void CcaReset(cca *Cca, d3d11_base *Base, cca_consts Consts)
   ID3D11DeviceContext_Dispatch(Context, GroupCount, GroupCount, 1);
   D3D11ClearComputeStage(Context);
   D3D11Tex2DSwap(Context, &Cca->TexRead, &Cca->TexWrite, Cca->TexSwapStage);
-  return;
-}
-void CcaDisplayTextures(cca *Cca)
-{
-  ImVec2 Dim;
-  igGetWindowSize(&Dim);
-  igColumns(3, NULL, 0);
-  igText("read");
-  igImage(Cca->SRViewTexRead, Dim,
-          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
-          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
-          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
-  igNextColumn();
-  igText("write");
-  igImage(Cca->SRViewTexWrite, Dim,
-          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
-          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
-          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
-  igNextColumn();
-  igText("render");
-  igImage(Cca->SRViewTexRender, Dim,
-          *ImVec2_ImVec2_Float(0.0f, 1.0f), *ImVec2_ImVec2_Float(1.0f, 0.0f),
-          *ImVec4_ImVec4_Float(1.0f, 1.0f, 1.0f, 1.0f), 
-          *ImVec4_ImVec4_Float(0.2f, 0.2f, 0.2f, 1.0f));
   return;
 }
 void CcaDraw(cca *Cca, d3d11_base *Base, cca_ui UIReq, u64 FrameCount, v2u WinRes)

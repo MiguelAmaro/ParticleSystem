@@ -1,130 +1,3 @@
-fn void UIReactDiffuseSection(ui_state *State)
-{
-  reactdiffuse_ui *Req = &State->ReactDiffuseReq;
-  {   // SIM PARAMS
-    igSpacing();
-  }
-  {   // SYS CONTROLS
-    Req->DoStep  = false;
-    Req->DoReset = false;
-    igSliderInt("Resolution", (s32 *)&Req->TexRes,REACTDIFFUSE_MIN_TEX_RES, REACTDIFFUSE_MAX_TEX_RES , NULL, 0);
-    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
-    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-    igCheckbox("Auto Step", (bool *)&Req->AutoStep);
-    if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  }
-  return;
-}
-fn void UIInstancingSection(ui_state *State)
-{
-  instancing_ui *Req = &State->InstancingReq;
-  {   // SIM PARAMS
-    igSpacing();
-  }
-  {   // SYS CONTROLS
-    Req->DoStep  = false;
-    Req->DoReset = false;
-    igSliderInt("Resolution", (s32 *)&Req->TexRes, INSTANCING_TEX_MIN_RES, INSTANCING_TEX_MAX_RES, NULL, 0);
-    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
-    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-    igCheckbox("Auto Step", (bool *)&Req->AutoStep);
-    if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  }
-  return;
-}
-fn void UIEocSection(ui_state *State)
-{
-  eoc_ui *Req = &State->EocReq;
-  {   // SIM PARAMS
-    igSliderFloat("Lambda", (f32 *)&Req->Lambda, 0.0, 1.0, NULL, 0);
-    igSliderInt("State Count", (s32 *)&Req->StateCount, 1, EOC_STATE_MAX_COUNT, NULL, 0);
-    igSpacing();
-  }
-  {   // SYS CONTROLS
-    Req->DoStep  = false;
-    Req->DoReset = false;
-    igSliderInt("Resolution", (s32 *)&Req->TexRes,EOC_TEX_MIN_RES, EOC_TEX_MAX_RES , NULL, 0);
-    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
-    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-    igCheckbox("Auto Step", (bool *)&Req->AutoStep);
-    if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  }
-  return;
-}
-fn void UICcaSection(ui_state *State)
-{
-  cca_ui *Req = &State->CcaReq;
-  // SIM PARAMS
-  {
-    igSliderInt("MaxState", (s32 *)&Req->MaxStates, 1, 20, NULL, 0);
-    igSliderInt("Threashold", (s32 *)&Req->Threashold, 1, Req->MaxStates, NULL, 0);
-    igSliderInt("Search Range", (s32 *)&Req->Range, 1, 5, NULL, 0);
-    igSliderInt("OverCount", (s32 *)&Req->OverCount, 1, (2*Req->Range+1)*(2*Req->Range+1), NULL, 0);
-    igSpacing();
-  }
-  // SYS CONTROLS
-  {
-    Req->DoStep  = false;
-    Req->DoReset = false;
-    igSliderInt("Resolution", (s32 *)&Req->Res, CCA_MIN_TEX_RES, CCA_MAX_TEX_RES , NULL, 0);
-    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
-    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-    igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
-    if(igButton("Step" , *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  }
-  return;
-}
-fn void UIBoidsSection(ui_state *State)
-{
-  boids_ui *Req = &State->BoidsReq;
-  {  //SYS PARAMS
-    igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, BOIDS_MAX_AGENTCOUNT, NULL, 0);
-    igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 100, NULL, 0);
-    igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, 0.0, 1.0, NULL, 0);
-    igSliderFloat("AlignmentFactor", (f32 *)&Req->AlignmentFactor, 0.0, 5.0, NULL, 0);
-    igSliderFloat("CohesionFactor", (f32 *)&Req->CohesionFactor, 0.0, 5.0, NULL, 0);
-    igSliderFloat("SeperationFactor", (f32 *)&Req->SeperationFactor, 0.0, 5.0, NULL, 0);
-    igSliderFloat("Max Speed", (f32 *)&Req->MaxSpeed, 0.0, 5.0, NULL, 0);
-    igSliderFloat("Max Force", (f32 *)&Req->MaxForce, 0.0, 5.0, NULL, 0);
-    igSpacing();
-  }
-  {  //SYS PARAMS
-    Req->DoStep  = false;
-    Req->DoReset = false;
-    igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
-    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
-    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-    igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
-    if(igButton("Step", *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  }
-  return;
-}
-fn void UIPhysarumSection(ui_state *State)
-{
-  physarum_ui *Req = &State->PhysarumReq;
-  {  //SYS PARAMS
-    igSliderInt("Agent Count", (s32 *)&Req->AgentCount, 1, 10000, NULL, 0);
-    igSliderInt("Search Range", (s32 *)&Req->SearchRange, 1, 5, NULL, 0);
-    igSliderFloat("FieldOfView", (f32 *)&Req->FieldOfView, 1, Pi32*2.0, NULL, 0);
-    igSpacing();
-  }
-  {  //SYS PARAMS
-    Req->DoStep  = false;
-    Req->DoReset = false;
-    igSliderInt("Resolution", (s32 *)&Req->Res, BOIDS_MIN_TEX_RES, BOIDS_MAX_TEX_RES , NULL, 0);
-    igSliderInt("Steps Per Frame", (s32 *)&Req->StepsPerFrame, 1, 50, NULL, 0);
-    igSliderInt("Steps Mod", (s32 *)&Req->StepMod, 1, 120, NULL, 0);
-    igCheckbox("Auto Step", (bool *)&Req->AutoStep);      // Edit bools storing our window open/close state
-    if(igButton("Step", *ImVec2_ImVec2_Float(0, 0))) { Req->DoStep = true; }
-    if(igButton("Reset", *ImVec2_ImVec2_Float(0, 0))) { Req->DoReset = true; }
-  }
-  return;
-}
 fn void UIControlCluster(ui_state *State)
 {
   f32 Framerate = igGetIO()->Framerate;
@@ -138,20 +11,40 @@ fn void UIControlCluster(ui_state *State)
     igBegin("D3D11 Sys Controls", NULL, ImGuiWindowFlags_None);
     igText("Application average %.3f ms/frame (%.1f FPS)", 1000.0f/Framerate, Framerate);
     igSliderInt(SysStrTable[State->SysKind], (s32 *)&State->SysKind, 0, SysKind_Count-1, NULL, 0);
-    local_persist bool Enabled = 0;
-    //igBeginMenu("Record Shader", &Enabled);
-    //igEndMenu();
-    
     igSeparator();
     igSpacing();
     switch(State->SysKind)
     {
-      case SysKind_Cca: UICcaSection(State); break;
-      case SysKind_Boids:UIBoidsSection(State); break;
-      case SysKind_Physarum:UIPhysarumSection(State); break;
-      case SysKind_ReactDiffuse:UIReactDiffuseSection(State); break;
-      case SysKind_Instancing:UIInstancingSection(State); break;
-      case SysKind_Eoc:UIEocSection(State); break;
+      case SysKind_Cca:
+      {
+        cca_ui *Req = &State->CcaReq;
+        CcaUI(Req);
+      } break;
+      case SysKind_Boids:
+      {
+        boids_ui *Req = &State->BoidsReq;
+        BoidsUI(Req);
+      } break;
+      case SysKind_Physarum:
+      {
+        physarum_ui *Req = &State->PhysarumReq;
+        PhysarumUI(Req);
+      } break;
+      case SysKind_ReactDiffuse:
+      {
+        reactdiffuse_ui *Req = &State->ReactDiffuseReq;
+        ReactDiffuseUI(Req);
+      } break;
+      case SysKind_Instancing:
+      {
+        instancing_ui *Req = &State->InstancingReq;
+        InstancingUI(Req);
+      } break;
+      case SysKind_Eoc:
+      {
+        eoc_ui *Req = &State->EocReq;
+        EocUI(Req);
+      } break;
       default: 
       {
         igTextWrapped("No UI avilable for this sys!\n");
@@ -159,6 +52,11 @@ fn void UIControlCluster(ui_state *State)
     }
     igEnd();
   }
+  local_persist bool Enabled = 0;
+  igBegin("Record Shader", NULL, ImGuiWindowFlags_None);
+  igEnd();
+  igBegin("Share", NULL, ImGuiWindowFlags_None);
+  igEnd();
   
   igBegin("D3D11 Messages", NULL, ImGuiWindowFlags_None);
   igTextWrapped("%.*s\n", ShaderLoader.ShaderMsg.Size, ShaderLoader.ShaderMsg.Data);
