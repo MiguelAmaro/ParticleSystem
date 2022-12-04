@@ -42,6 +42,15 @@ str8 Str8FromArena(arena *Arena, u64 Size)
   Result.Data = ArenaPushArray(Arena, Size, u8);
   return Result;
 }
+fn str8 Str8CopyToArena(arena *Arena, u8 *CStr)
+{
+  str8 Result = {0};
+  u64 LengthWithNull = CStrGetSize((char *)CStr, 1);
+  Result.Data = ArenaPushArray(Arena, LengthWithNull, u8);
+  Result.Size = LengthWithNull - 1; //Pretend Null doesn't exist but it does
+  MemoryCopy(CStr, LengthWithNull, Result.Data, LengthWithNull);
+  return Result;
+}
 b32 Str8IsEqual(str8 a, str8 b)
 {
   b32 Result = 1;

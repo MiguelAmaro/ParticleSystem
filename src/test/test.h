@@ -103,7 +103,13 @@ void TestDraw(testrend *Test, d3d11_base *Base)
   Assert(Test->VertexMaxCount == 10); //This test requires the the number of vertices is 10.
   arena Arena; ArenaLocalInit(Arena, 4096*2);
   u32        Count = Test->VertexMaxCount;
-  test_vert *Verts = D3D11BufferRead(Test->RWStructBuffer, Test->DbgStageBuffer, sizeof(test_vert), Test->VertexMaxCount, &Arena);
+  test_vert *Verts = NULL;
+  D3D11ScopedBase(Base)
+  {
+    Verts = D3D11BufferRead(Test->RWStructBuffer,
+                            Test->DbgStageBuffer, sizeof(test_vert), Test->VertexMaxCount, &Arena);
+    
+  }
   ConsoleLog("D3D11 Debug Results:\n");
   foreach(VertId, Count, u32)
   {

@@ -13,6 +13,7 @@ struct d3d11_base
   ID3D11DepthStencilState *DepthState;
   ID3D11RenderTargetView  *RTView;
   ID3D11DepthStencilView  *DSView;
+  ID3D11InfoQueue         *Info;
   D3D11_VIEWPORT           Viewport;
   
 };
@@ -117,6 +118,8 @@ struct async_shader_load
   u32 Count;
   d3d11_base *Base;
   b32 IsInitialized;
+  u8 ArenaBuffer[4096];
+  str8 ShaderMsg;
 };
 #define D3D11BaseDestructure(BasePtr) \
 ID3D11Device            *Device     = BasePtr->Device;          \

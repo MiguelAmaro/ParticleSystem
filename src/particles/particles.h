@@ -171,10 +171,10 @@ void ParticleSystemDraw(particlesystem *System,  ID3D11DeviceContext * Context, 
   D3D11ClearPipeline(Context);
   return;
 }
-
+#if 0
 void ParticleSystemLoadShaders(particlesystem *System, ID3D11Device* Device)
 {
-  ID3DBlob* PSysCMBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("CSMAIN"), "cs_5_0", "Particle System");
+  ID3DBlob* PSysCMBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("CSMAIN"), "cs_5_0", NULL, NULL);
   ID3DBlob* PSysCHBlob = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particleshelper.hlsl"), Str8("CSHELPER"), "cs_5_0", "Particle System");
   ID3DBlob* PSysVBlob  = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("VSMAIN"), "vs_5_0", "Particle System");
   ID3DBlob* PSysGblob  = D3D11ShaderLoadAndCompile(Str8("F:\\Dev\\ParticleSystem\\src\\particles.hlsl"),  Str8("GSMAIN"), "gs_5_0", "Particle System");
@@ -199,7 +199,7 @@ void ParticleSystemLoadShaders(particlesystem *System, ID3D11Device* Device)
   ID3D10Blob_Release(PSysPBlob);
   return;
 }
-
+#endif
 particlesystem CreateParticleSystem(d3d11_base* Base, u32 ParticleCount, f32 WindowWidth,
                                     f32 WindowHeight)
 {

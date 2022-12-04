@@ -4,7 +4,7 @@
 typedef enum system_kind system_kind;
 enum system_kind
 {
-  SysKind_MM,
+  SysKind_MM = 0,
   SysKind_Test,
   SysKind_Cca,
   SysKind_Boids,
@@ -51,6 +51,8 @@ struct ui_state
   wfc_ui WfcReq;
   eoc_ui EocReq;
   system_kind SysKind;
+  u32 DimgColPushCount;
+  u32 DimgVarPushCount;
 };
 
 // NOTE(MIGUEL): Meta: I can have something like META_PROJNAME(<name>) definded in a project to 

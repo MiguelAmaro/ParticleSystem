@@ -142,17 +142,17 @@ float4 TriPlanarMap(float3 p)
   bld = normalize(max(bld, 0.00001));
   float b = (bld.x + bld.y + bld.z);
   bld /= b;
-  float3 x = TexRendered.Sample(SamTexRendered, s*q.yz).xyz;
-  float3 y = TexRendered.Sample(SamTexRendered, s*q.xz).xyz;
-  float3 z = TexRendered.Sample(SamTexRendered, s*q.xy).xyz;
+  float3 x = TexRendered.SampleLevel(SamTexRendered, s*q.yz, 0).xyz;
+  float3 y = TexRendered.SampleLevel(SamTexRendered, s*q.xz, 0).xyz;
+  float3 z = TexRendered.SampleLevel(SamTexRendered, s*q.xy, 0).xyz;
   tex.xyz = x*bld.x + y*bld.y + z*bld.z;
-  float xw = TexState.Sample(SamTexState, s*q.yz).x;
-  float yw = TexState.Sample(SamTexState, s*q.xz).y;
-  float zw = TexState.Sample(SamTexState, s*q.xy).x;
+  float xw = TexState.SampleLevel(SamTexState, s*q.yz, 0).x;
+  float yw = TexState.SampleLevel(SamTexState, s*q.xz, 0).y;
+  float zw = TexState.SampleLevel(SamTexState, s*q.xy, 0).x;
   tex.w = xw*bld.x + yw*bld.y + zw*bld.z;
 #else
-  tex.xyz = TexRendered.Sample(SamTexRendered, s*q.xy).xyz;
-  tex.w   = TexState.Sample(SamTexState, s*q.xy);
+  tex.xyz = TexRendered.SampleLevel(SamTexRendered, s*q.xy, 0).xyz;
+  tex.w   = TexState.SampleLevel(SamTexState, s*q.xy, 0);
 #endif
   return tex;
 }
@@ -181,8 +181,8 @@ hit CastRay(ray r)
   float t = 0.0;
   float d = 0.0;
   
-  [unroll]
-    for(int i=0;i<100;i++)
+  
+  for(int i=0;i<100;i++)
   {
     h.p  = r.d*t + r.o;
     d = World(h.p);
@@ -198,7 +198,7 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
   float2 st = (2.0*Input.Pos.xy-UWinRes.xy)/UWinRes.y;
   
   
-  float Vignetting = smoothstep(0.0,0.3, length(st)-0.85);
+  float Vignetting = smoothstep(0.3,0.0, length(st)-0.75);
   float3 Color = float3(1.0, 0.9, 0.9);
   
   //RAYMARCHING
@@ -226,7 +226,7 @@ float4 PSMain(PS_INPUT Input) : SV_TARGET
     Color = matte;
   }
   
-  //Color = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
+  Color = TexRendered.Sample(SamTexRendered, 1.0*Input.UV.xy).xyz;
   Color = pow(max(0.0,Color), 0.4545);
-  return float4(Color.x, Color.y, Color.z, 1.0);
+  return float4(Color, 1.0)*Vignetting;
 }

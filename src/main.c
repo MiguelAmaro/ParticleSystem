@@ -88,6 +88,27 @@
 #include "ui.h"
 #include "ui.c"
 
+/* NOTE(MIGUEL): Today i fleshed out imgui stuff more. There is now the ablity to display shader compilation error messages.
+               *                The ways it work is very sketchy. I just read the async_loader structure message string directly from ui code.
+               *                the loader system might be overwriting previous messages emited by previous shader compilations. None of ths 
+               *                I am not sure if d3d11 Info query can get the state of a shader compiler. regardless it seems like it can
+               *                query the stater of the piplind and its error which will till be use full.
+               *                My guess for how compile messages should be stored is:
+               *                d3d11_shader types should each have a block allocated in their systems arena. a pointer the their respective bloc
+               *                d3d11_base should have and arena and a function that can use d3d11 queryinfo api to get pipe line state and push 
+               *                whatever on to the base arena
+               *                shader will all have their messages dumped afte hotloading.
+               *                the issue will be keep messages on screen and clearing them as appropriate
+               *                
+               *                other things would be to a have the option render to an imgui window instad of main window
+               *                this involve grabbing the frame buffer from d3d11 and some othe stuff
+               *                
+               *                i should push media foundation
+               *                
+               *                
+
+*/               
+
 b32 CompareInts(void *a, void *b)
 {
   u32 *numa = (u32 *)a;
@@ -109,21 +130,11 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
     ThreadCtxSet(&ThreadContext);
   }
   
-  d3d11_base    D11Base = D3D11InitBase(Window);
-  
+  d3d11_base D11Base = D3D11InitBase(Window);
   ImGuiIO *Io = NULL;
-  {
-    ImGuiContext* Ctx = igCreateContext(NULL);
-    Io = igGetIO();
-    Io->ConfigFlags = (ImGuiConfigFlags_NavEnableKeyboard |       // Enable Keyboard Controls
-                       ImGuiConfigFlags_DockingEnable     |       // Enable Docking
-                       ImGuiConfigFlags_ViewportsEnable   |
-                       ImGuiConfigFlags_NavEnableSetMousePos);         // Enable Multi-Viewport / Platform Windows
-    ImGui_ImplWin32_Init(Window);
-    ImGui_ImplDX11_Init(D11Base.Device, D11Base.Context);
-    igSetCurrentContext(Ctx);
-    ShowWindow(Window, SW_SHOWDEFAULT);
-  }
+  
+  UInit(&Io, Window, &D11Base);
+  
   
   IMFMediaSource *VideoSource; 
   CreateVideoDeviceSource(&VideoSource);
@@ -135,8 +146,8 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   
   // NOTE(MIGUEL): After this assgne the this projects ui struct to the ui_state.
   //
-  instancing Instancing = InstancingInit(&D11Base);
-#if 0
+  cca            Cca           = CcaInit(&D11Base);
+#if 1
   eoc Eoc        = EocInit(&D11Base);
   reactdiffuse   ReactDiffuse = ReactDiffuseInit(&D11Base);
   wfc Wfc        = WfcInit(&D11Base);
@@ -145,9 +156,9 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   particlesystem ParticleSystem = CreateParticleSystem(&D11Base, 20, (f32)WindowDim.x, (f32)WindowDim.y);
   mm_render      MMRender       = CreateMMRender      (D11Base.Device, D11Base.Context);
   testrend       TestRenderer   = CreateTestRenderer(&D11Base);
-  cca            Cca           = CcaInit(&D11Base);
   physarum       Physarum       = PhysarumInit(&D11Base);
 #else
+  instancing Instancing ;
   boids          Boids;
   reactdiffuse   ReactDiffuse ;
   wfc Wfc        ;
@@ -155,9 +166,8 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   particlesystem ParticleSystem;
   mm_render      MMRender      ;
   testrend       TestRenderer  ;
-  cca            Cca           ;
+  //cca            Cca           ;
   physarum       Physarum      ;
-  //reactdiffuse   ReactDiffuse;
 #endif
   // AddSystem( "React Diffuse System"); //no more string table i just declare name here and have and store in buffer. ui can traverse array and pick whatever.
   
@@ -167,22 +177,23 @@ int WINAPI WinMain(HINSTANCE Instance, HINSTANCE PrevInstance, LPSTR Args, int A
   //               and dont forget to set the sys kind
   //IMGUI state
   ui_state UIState = {
-    .SysKind = SysKind_Instancing,
+    .SysKind = SysKind_Cca,
+    .CcaReq = Cca.UIState,
+#if 1
     .InstancingReq = Instancing.UIState,
-#if 0
     .EocReq = Eoc.UIState,
     .ReactDiffuseReq = ReactDiffuse.UIState,
     .WfcReq = Wfc.UIState,
     .BoidsReq = Boids.UIState,
     .InstancingReq = Instancing.UIState,
-    .CcaReq = Cca.UIState,
     .PhysarumReq = Physarum.UIState,
 #endif
   };
   //ParticleSystemLoadShaders(&ParticleSystem, D11Base.Device);
   u64 FrameCount = 0;
   b32 Running = 1;
-  
+  arena MainArena = ArenaInit(NULL, 1024*4, OSMemoryAlloc(1024*4));
+  str8 D3D11Msg = {0};
   for (;Running;)
   {
     // process all incoming Windows messages
@@ -229,6 +240,25 @@ for(.Syscount)
   }
   */
       
+      
+      arena_temp Scratch = MemoryGetScratch(NULL, 0);
+      D3D11_MESSAGE *Message = {0};
+      u64 MessageSize = 0;
+      ID3D11InfoQueue_GetMessage(D11Base.Info, 0, NULL, &MessageSize);
+      Message = ArenaPushBlock(Scratch.Arena, MessageSize);
+      ID3D11InfoQueue_GetMessage(D11Base.Info, 0, Message, &MessageSize);
+      if(
+         Message->Category==D3D11_MESSAGE_CATEGORY_COMPILATION ||
+         Message->Category==D3D11_MESSAGE_CATEGORY_SHADER
+         )
+      {
+        ArenaReset(&MainArena);
+        D3D11Msg = Str8FromArena(&MainArena, Message->DescriptionByteLength);
+        MemoryCopy((void *)Message->pDescription, D3D11Msg.Size, D3D11Msg.Data, D3D11Msg.Size);
+        ConsoleLog(*Scratch.Arena, "%s\n", D3D11Msg.Data);
+      }
+      MemoryReleaseScratch(Scratch);
+      
       switch(UIState.SysKind)
       {
         case SysKind_MM:
@@ -241,36 +271,36 @@ for(.Syscount)
         } break;
         case SysKind_Cca:
         {
-          D3D11ShaderHotReload(&D11Base, &Cca.Reset);
-          D3D11ShaderHotReload(&D11Base, &Cca.Step);
-          D3D11ShaderHotReload(&D11Base, &Cca.Vertex);
-          D3D11ShaderHotReload(&D11Base, &Cca.Pixel);
+          D3D11ShaderAsyncHotReload(&D11Base, &Cca.Reset);
+          D3D11ShaderAsyncHotReload(&D11Base, &Cca.Step);
+          D3D11ShaderAsyncHotReload(&D11Base, &Cca.Vertex);
+          D3D11ShaderAsyncHotReload(&D11Base, &Cca.Pixel);
           CcaDraw(&Cca, &D11Base, UIState.CcaReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Boids:
         {
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsReset);
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsMove);
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsTrails);
-          D3D11ShaderHotReload(&D11Base, &Boids.AgentsDebug);
-          D3D11ShaderHotReload(&D11Base, &Boids.TexReset);
-          D3D11ShaderHotReload(&D11Base, &Boids.TexDiffuse);
-          D3D11ShaderHotReload(&D11Base, &Boids.Render);
-          D3D11ShaderHotReload(&D11Base, &Boids.Vertex);
-          D3D11ShaderHotReload(&D11Base, &Boids.Pixel);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.AgentsReset);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.AgentsMove);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.AgentsTrails);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.AgentsDebug);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.TexReset);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.TexDiffuse);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.Render);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.Vertex);
+          D3D11ShaderAsyncHotReload(&D11Base, &Boids.Pixel);
           BoidsDraw(&Boids, &D11Base, UIState.BoidsReq, FrameCount, WindowDimu);
         } break;
         case SysKind_Physarum:
         {
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsReset);
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsMove);
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsTrails);
-          D3D11ShaderHotReload(&D11Base, &Physarum.AgentsDebug);
-          D3D11ShaderHotReload(&D11Base, &Physarum.TexReset);
-          D3D11ShaderHotReload(&D11Base, &Physarum.TexDiffuse);
-          D3D11ShaderHotReload(&D11Base, &Physarum.Render);
-          D3D11ShaderHotReload(&D11Base, &Physarum.Vertex);
-          D3D11ShaderHotReload(&D11Base, &Physarum.Pixel);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.AgentsReset);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.AgentsMove);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.AgentsTrails);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.AgentsDebug);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.TexReset);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.TexDiffuse);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.Render);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.Vertex);
+          D3D11ShaderAsyncHotReload(&D11Base, &Physarum.Pixel);
           PhysarumDraw(&Physarum, &D11Base, UIState.PhysarumReq, FrameCount, WindowDimu);
         } break;
         case SysKind_ReactDiffuse:
@@ -320,11 +350,9 @@ for(.Syscount)
       }
       // NOTE(MIGUEL): After add in shader reloading go to the ui.h file and .c file and make sure
       //               everything is hooked up.
-      
-      
-      UIBegin();
+      UIBegin(&UIState);
       UIControlCluster(&UIState);
-      UIEnd(Io);
+      UIEnd(&UIState, Io);
     }
     
     // change to FALSE to disable vsync

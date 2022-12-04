@@ -223,6 +223,7 @@ fn b32 OSProcessMessges(void)
 }
 static LRESULT CALLBACK WindowEventProc(HWND wnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
+  if (ImGui_ImplWin32_WndProcHandler(wnd, msg, wparam, lparam)) return 1;
   switch (msg)
   {
     case WM_DESTROY:

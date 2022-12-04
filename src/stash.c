@@ -126,7 +126,6 @@
     ConsoleLog("*start kd tree end log*\n\n\n");
     //D3D11GPUMemoryWrite(Context, Boids->Agents, Agents,sizeof(boids_agent), Boids->AgentCount);
     ArenaTempEnd(Scratch);
-    //OSProfileEnd();
   }
   ///shader
   uint ParentAgentIds[2000];

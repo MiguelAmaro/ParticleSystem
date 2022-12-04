@@ -285,7 +285,6 @@ fn void ReactDiffuseReset(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdif
 }
 fn void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiffuse_ui UIReq, u64 FrameCount, v2u WinRes)
 {
-  OSProfileStart();
   D3D11BaseDestructure(Base);
   local_persist u32 StepCount = 0;
   // REACTDIFFUSE PASS
@@ -344,7 +343,6 @@ fn void ReactDiffuseDraw(reactdiffuse *ReactDiffuse, d3d11_base *Base, reactdiff
   ID3D11DeviceContext_OMSetRenderTargets(Context, 1, &RTView, DSView);
   ID3D11DeviceContext_Draw(Context, 6, 0);
   D3D11ClearPipeline(Context);
-  OSProfileEnd();
   return;
 }
 

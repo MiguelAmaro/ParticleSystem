@@ -155,7 +155,7 @@ fn void InstancingUpdate(instancing *Instancing, u64 FrameCount, v2u WinRes)
   f32 t = (f32)FrameCount*0.05f;
   m4f S = Scalem4f(2.0f, 2.0f, 2.0f);
   m4f R = M4fRotate(0.0f, 0.0f, 0.0f);
-  m4f T = M4fTranslate(V3f(0.0f, 0.0f, 10.0f));
+  m4f T = M4fTranslate(V3f(0.0f, 0.0f, 0.0f));
   m4f Model = Mul(Mul(R, S), T);
   m4f Proj = M4fPerspective(0.0f, 0.0f, (f32)WinRes.y, (f32)WinRes.x, 1.0f, 200.0f);
   Instancing->Proj = Proj;

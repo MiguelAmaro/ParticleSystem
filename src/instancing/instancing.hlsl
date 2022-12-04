@@ -30,7 +30,6 @@ void KernelReset( uint3 id : SV_DispatchThreadID  )
   // NOTE(MIGUEL): make sure that all TexRes components are assigned in the .h file
   if(id.x >= UTexRes.x || id.y >= UTexRes.y) return;
   float2 uv = (float2)id.xy/(float2)UTexRes.xy;
-  
   TexWrite[id.xy] = 10*rand22(uv*(float)UTime*0.0001).x;
   return;
 }

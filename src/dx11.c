@@ -26,11 +26,9 @@ fn  d3d11_base D3D11InitBase(HWND Window)
   }
   // for debug builds enable VERY USEFUL debug break on API errors
   {
-    ID3D11InfoQueue* Info;
-    ID3D11Device_QueryInterface(Base.Device, &IID_ID3D11InfoQueue, &Info);
-    ID3D11InfoQueue_SetBreakOnSeverity(Info, D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE);
-    ID3D11InfoQueue_SetBreakOnSeverity(Info, D3D11_MESSAGE_SEVERITY_ERROR, TRUE);
-    ID3D11InfoQueue_Release(Info);
+    ID3D11Device_QueryInterface(Base.Device, &IID_ID3D11InfoQueue, &Base.Info);
+    ID3D11InfoQueue_SetBreakOnSeverity(Base.Info, D3D11_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+    ID3D11InfoQueue_SetBreakOnSeverity(Base.Info, D3D11_MESSAGE_SEVERITY_ERROR, TRUE);
   }
 #ifndef NDEBUG
   // after this there's no need to check for any errors on device functions manually
@@ -543,32 +541,41 @@ fn void D3D11Tex2DSwap(ID3D11DeviceContext *Context, ID3D11Texture2D **TexA, ID3
 //~ SHADER LOADING & CREATION
 // TODO(MIGUEL): This whole section needs testing.
 // TODO(MIGUEL): copy the ErrorMsg to a str8 CompilerMsg, arena Arena and display in  imgui 
-fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry,
-                                       const char *ShaderTypeAndVer, const char *CallerName)
+fn ID3DBlob *D3D11ShaderLoadAndCompile(str8 ShaderFileDir, str8 ShaderEntry, const char *ShaderTypeAndVer,
+                                       str8 *CompilerMsg, arena *Arena)
 {
-  OSProfileStart();
   ID3DBlob *ShaderBlob = NULL;
   ID3DBlob *ErrorMsg = NULL;
   HRESULT Status;
-  arena Arena; ArenaLocalInit(Arena, 4096*5);
-  arena_temp Temp = ArenaTempBegin(&Arena);
+  arena LocalArena; ArenaLocalInit(LocalArena, 4096*5);
+  arena_temp Temp = ArenaTempBegin(&LocalArena);
   str8 ShaderSrc  = OSFileRead(ShaderFileDir, Temp.Arena);
   ArenaTempEnd(Temp);
   UINT DbgFlags    = (D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION | D3DCOMPILE_WARNINGS_ARE_ERRORS);
   UINT CommonFlags = (D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR | D3DCOMPILE_ENABLE_STRICTNESS);
   //OSProfileLinesStart("D3DCompile");
-  //OSProfileEnd();
   Status = D3DCompile(ShaderSrc.Data, ShaderSrc.Size, NULL, NULL, NULL,
                       (LPCSTR)ShaderEntry.Data, (LPCSTR)ShaderTypeAndVer,
                       CommonFlags | DbgFlags, 0, &ShaderBlob, &ErrorMsg);
-  if (FAILED(Status))
+  if(FAILED(Status))
   {
-    const char* message = ID3D10Blob_GetBufferPointer(ErrorMsg);
-    OutputDebugStringA(message);
-    ConsoleLog(Arena, "[%s]: Failed to load shader of type %s !!!\n", ShaderTypeAndVer, CallerName);
+    const char* Message = ID3D10Blob_GetBufferPointer(ErrorMsg);
+    
+    if(!(CompilerMsg==NULL || Arena==NULL))
+    {
+      *CompilerMsg = Str8CopyToArena(Arena, (u8 *)Message);
+    }
+    OutputDebugStringA(Message);
+    ConsoleLog(LocalArena, "[%s]: Failed to load shader of type !!!\n", ShaderTypeAndVer);
     //Assert(!"Failed to load shader! Look at console for details");
   }
-  OSProfileEnd();
+  else
+  {
+    if(!(CompilerMsg==NULL || Arena==NULL))
+    {
+      CompilerMsg->Size = 0;
+    }
+  }
   return ShaderBlob;
 }
 global async_shader_load ShaderLoader = {0};
@@ -576,6 +583,7 @@ global async_shader_load ShaderLoader = {0};
 fn static DWORD WINAPI AsyncShaderLoader(void *Param)
 {
   async_shader_load *Load = (async_shader_load *)Param;
+  arena Arena = ArenaInit(NULL, 4096, Load->ArenaBuffer);
   D3D11BaseDestructure(Load->Base);
   while(1)
   {
@@ -590,7 +598,8 @@ fn static DWORD WINAPI AsyncShaderLoader(void *Param)
         {
           case ShaderKind_Vertex:
           {
-            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "vs_5_0", __FUNCTION__);
+            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "vs_5_0", 
+                                             &Load->ShaderMsg, &Arena);
             if(Blob==NULL)
             {
               // NOTE(MIGUEL): Interlocked exchange here
@@ -604,7 +613,8 @@ fn static DWORD WINAPI AsyncShaderLoader(void *Param)
           } break;
           case ShaderKind_Pixel:
           {
-            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "ps_5_0", __FUNCTION__);
+            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "ps_5_0",
+                                             &Load->ShaderMsg, &Arena);
             if(Blob==NULL)
             {
               // NOTE(MIGUEL): Interlocked exchange here
@@ -618,7 +628,8 @@ fn static DWORD WINAPI AsyncShaderLoader(void *Param)
           } break;
           case ShaderKind_Compute:
           {
-            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "cs_5_0", __FUNCTION__);
+            Blob = D3D11ShaderLoadAndCompile(Entry->Shader.Path, Entry->Shader.EntryName, "cs_5_0",
+                                             &Load->ShaderMsg, &Arena);
             if(Blob==NULL)
             {
               // NOTE(MIGUEL): Interlocked exchange here
@@ -774,12 +785,12 @@ fn void D3D11ShaderAsyncHotReload(d3d11_base *Base, d3d11_shader *Shader)
   }
   return;
 }
+#if 0
 fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader)
 {
   D3D11BaseDestructure(Base);
   datetime LastWrite = OSFileLastWriteTime(Shader->Path);
   if(IsEqual(&LastWrite, &Shader->LastRecordedWrite, datetime)) return;
-  OSProfileStart();
   ID3DBlob *Blob = NULL;
   switch(Shader->Kind)
   {
@@ -851,15 +862,14 @@ fn void D3D11ShaderHotReload(d3d11_base *Base, d3d11_shader *Shader)
   arena Arena; ArenaLocalInit(Arena, 256);
   ConsoleLog(Arena, "Reloaded Shader\n");
   Shader->LastRecordedWrite = LastWrite;
-  OSProfileEnd();
   return;
 }
+#endif
 fn d3d11_shader D3D11ShaderCreate(shaderkind Kind, str8 Path, str8 EntryName, D3D11_INPUT_ELEMENT_DESC *VElemDesc,
                                   u32 VElemDescCount, d3d11_base *Base)
 {
   D3D11BaseDestructure(Base);
   //arena Arena
-  OSProfileStart();
   d3d11_shader Result = {0};
   Result.Path      = Path;
   Result.EntryName = EntryName;
@@ -877,7 +887,7 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind, str8 Path, str8 EntryName, D3
     case ShaderKind_Vertex:
     {
       ID3D11VertexShader *NewVertexShader = NULL;
-      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "vs_5_0", __FUNCTION__);
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "vs_5_0", NULL, NULL);
       if(Blob != NULL)
       {
         HRESULT Status = ID3D11Device_CreateVertexShader(Device,
@@ -889,7 +899,7 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind, str8 Path, str8 EntryName, D3
     } break;
     case ShaderKind_Pixel:
     {
-      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "ps_5_0", __FUNCTION__);
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "ps_5_0", NULL, NULL);
       if(Blob != NULL)
       {
         HRESULT Status = ID3D11Device_CreatePixelShader(Device,
@@ -900,7 +910,7 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind, str8 Path, str8 EntryName, D3
     } break;
     case ShaderKind_Compute:
     {
-      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "cs_5_0", __FUNCTION__);
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "cs_5_0", NULL, NULL);
       if(Blob != NULL)
       {
         HRESULT Status = ID3D11Device_CreateComputeShader(Device,
@@ -911,7 +921,7 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind, str8 Path, str8 EntryName, D3
     } break;
     case ShaderKind_Geometry:
     {
-      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "gs_5_0", __FUNCTION__);
+      Blob = D3D11ShaderLoadAndCompile(Path, EntryName, "gs_5_0", NULL, NULL);
       if(Blob != NULL)
       {
         HRESULT Status = ID3D11Device_CreateGeometryShader(Device,
@@ -927,7 +937,6 @@ fn d3d11_shader D3D11ShaderCreate(shaderkind Kind, str8 Path, str8 EntryName, D3
   }
   ConsoleLog(Arena, "Creating Shader\n");
   if(Blob != NULL) ID3D10Blob_Release(Blob);
-  OSProfileEnd();
   return Result;
 }
 fn void D3D11ClearComputeStage(ID3D11DeviceContext *Context)

@@ -196,7 +196,6 @@ void Tex3dReset(tex3d *Tex3d, d3d11_base *Base, tex3d_consts Consts)
 }
 void Tex3dDraw(tex3d *Tex3d, d3d11_base *Base, tex3d_ui UIReq, u64 FrameCount, v2u WinRes)
 {
-  OSProfileStart();
   D3D11BaseDestructure(Base);
   local_persist u32 StepCount = 0;
   // TEX3D PASS
@@ -248,7 +247,6 @@ void Tex3dDraw(tex3d *Tex3d, d3d11_base *Base, tex3d_ui UIReq, u64 FrameCount, v
   ID3D11DeviceContext_OMSetRenderTargets(Context, 1, &RTView, DSView);
   ID3D11DeviceContext_Draw(Context, 6, 0);
   D3D11ClearPipeline(Context);
-  OSProfileEnd();
   return;
 }
 

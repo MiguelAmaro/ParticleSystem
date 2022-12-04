@@ -41,7 +41,6 @@ void MergeSortItrnl(u8 *a, u8 *b, u64 Count, u64 TypeSize, sort_comparator Compa
 void MergeSortInitItrnl(void *a, u64 Count, u64 TypeSize, sort_comparator Comparator, 
                         arena **ArenaToIgnore, u32 IgnoreCount)
 {
-  //OSProfileStart();
   u64 BlockSize = Count*TypeSize;
   arena_temp Scratch = MemoryGetScratch(ArenaToIgnore, IgnoreCount);
   void *b = ArenaPushBlock(Scratch.Arena, Count*TypeSize);
@@ -49,9 +48,7 @@ void MergeSortInitItrnl(void *a, u64 Count, u64 TypeSize, sort_comparator Compar
   MemoryCopy(a, BlockSize, b, BlockSize);
   //OSProfileLinesStart("MergeSortItrnl");
   MergeSortItrnl((u8 *)a, (u8 *)b, Count, TypeSize, Comparator);
-  //OSProfileEnd();
   MemoryReleaseScratch(Scratch);
-  //OSProfileEnd();
   return;
 }
 

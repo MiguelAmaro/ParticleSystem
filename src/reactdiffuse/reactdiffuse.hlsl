@@ -153,7 +153,7 @@ void KernelChemReactDiffuse(uint3 id : SV_DispatchThreadID)
   float FeedRate = 0;
   float KillRate = 0;
   
-#define KF (4)
+#define KF (1)
 #if KF==0
   // worms
   FeedRate = 0.06100;
