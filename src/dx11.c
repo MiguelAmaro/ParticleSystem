@@ -370,6 +370,7 @@ fn void D3D11BufferViewUAAppend(ID3D11Device* Device, ID3D11UnorderedAccessView 
   ID3D11Device_CreateUnorderedAccessView(Device, (ID3D11Resource*)Buffer, &Desc, UAV);
   return;
 }
+// NOTE(MIGUEL): Deprecated!!!!!!
 fn void D3D11Tex2DViewSR(ID3D11Device* Device, ID3D11ShaderResourceView **SRV, ID3D11Texture2D **GetTex, v2s TexDim,
                          void *Data, u32 Stride, tex_format Format)
 {

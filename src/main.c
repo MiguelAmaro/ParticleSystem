@@ -115,7 +115,7 @@
                *                - I want working matix operations.
                *                - Make "systems" a dll that can be loaded.
                *                - make funcions of "systems" that are call in main loop exported module functions
-               *                - 
+               *                - metaprogramming. generating boiler plate files (should be a working example)
                *                
                *                Resources for D3D11InfoQuery
                *                https://learn.microsoft.com/en-us/windows/win32/api/d3d11sdklayers/ne-d3d11sdklayers-d3d11_message_category
@@ -127,6 +127,7 @@
                *                
                *                for imgui
                *                https://github.com/ocornut/imgui/wiki/Image-Loading-and-Displaying-Examples
+               *                https://www.youtube.com/watch?v=uQljBVVb-lU
                *                https://github.com/ocornut/imgui/blob/master/docs/FAQ.md#q-how-can-i-display-an-image-what-is-imtextureid-how-does-it-work
                *                https://github.com/ocornut/imgui/blob/master/docs/FAQ.md
                *                https://gamedev.stackexchange.com/questions/150214/render-in-a-imgui-window
